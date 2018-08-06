@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+service Consumer{
+    rpc Consume(ConsumeRequest) returns (ConsumeResponse) {}
+}
+
+message ConsumeRequest{
+
+}
+
+message ConsumeResponse{
+
+}

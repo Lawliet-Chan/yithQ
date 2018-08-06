@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+service Producer{
+    rpc Publish(Message) returns (Response){}
+    rpc MultiPublish(Messages) returns (Response){}
+}
+
+message Message{
+
+}
+
+message Messages{
+
+}
+
+message Response{
+
+}
