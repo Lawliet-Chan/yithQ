@@ -1,5 +1,9 @@
 package yith
 
-func (s *Server) Replica() {
+func (s *Server) ReplicaToOtherNodes() {
+
+}
+
+func (s *Server) ReceiveReplicaFromOtherNodes() {
 
 }

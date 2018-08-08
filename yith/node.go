@@ -23,7 +23,7 @@ func (n *Node) AddTopicPartition(tp map[string]*Partition) {
 	}
 }
 
-func (n *Node) Produce(topic string, msg *message.Message) error {
+func (n *Node) Produce(topic string, msgs []*message.Message) error {
 
 }
 

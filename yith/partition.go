@@ -22,8 +22,8 @@ func NewPartition(id int, topicName string, isRepplica bool) *Partition {
 	}
 }
 
-func (p *Partition) Produce(msg *message.Message) error {
-	return p.q.Fill(msg)
+func (p *Partition) Produce(msgs []*message.Message) error {
+	return p.q.Fill(msgs)
 }
 
 func (p *Partition) Consume(popOffset int64) ([]*message.Message, int64, error) {

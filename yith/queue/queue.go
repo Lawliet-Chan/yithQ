@@ -14,12 +14,12 @@ func NewQueue(mq MemoryQueue, dq DiskQueue) *Queue {
 	}
 }
 
-func (q *Queue) Fill(msg *message.Message) error {
-	err := q.mq.FillToMemory(msg)
+func (q *Queue) Fill(msgs []*message.Message) error {
+	err := q.mq.FillToMemory(msgs)
 	if err != nil {
 		return err
 	}
-	return q.dq.FillToDisk(msg)
+	return q.dq.FillToDisk(msgs)
 }
 
 func (q *Queue) Pop(popOffset int64) ([]*message.Message, int64, error) {
