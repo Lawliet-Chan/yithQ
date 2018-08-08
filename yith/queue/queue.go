@@ -1,6 +1,6 @@
 package queue
 
-import "yithQ/yith/message"
+import "yithQ/message"
 
 type Queue struct {
 	mq MemoryQueue
@@ -22,6 +22,6 @@ func (q *Queue) Fill(msg *message.Message) error {
 	return q.dq.FillToDisk(msg)
 }
 
-func (q *Queue) Pop(popOffset int64) (*message.Message, error) {
+func (q *Queue) Pop(popOffset int64) ([]*message.Message, int64, error) {
 
 }

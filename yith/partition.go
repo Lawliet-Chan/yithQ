@@ -1,8 +1,8 @@
 package yith
 
 import (
+	"yithQ/message"
 	"yithQ/yith/queue"
-	"yithQ/yith/message"
 )
 
 type Partition struct {
@@ -22,10 +22,10 @@ func NewPartition(id int, topicName string, isRepplica bool) *Partition {
 	}
 }
 
-func (p *Partition) Produce(msg *message.Message) error{
+func (p *Partition) Produce(msg *message.Message) error {
 	return p.q.Fill(msg)
 }
 
-func (p *Partition) Consume(popOffset int64) (*message.Message,error){
+func (p *Partition) Consume(popOffset int64) ([]*message.Message, int64, error) {
 	return p.q.Pop(popOffset)
 }

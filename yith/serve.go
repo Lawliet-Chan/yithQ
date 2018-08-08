@@ -1,5 +1,6 @@
 package yith
 
-type Serve struct {
-
+type Server struct {
 }
+
+
