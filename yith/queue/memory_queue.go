@@ -13,8 +13,8 @@ type MemoryQueue interface {
 type memoryQueue struct {
 }
 
-func NewMemoryQueue(conf *conf.MemoryQueueConf) (MemoryQueue,error) {
-	return &memoryQueue{},nil
+func NewMemoryQueue(conf *conf.MemoryQueueConf) (MemoryQueue, error) {
+	return &memoryQueue{}, nil
 }
 
 func (mq *memoryQueue) FillToMemory(msgs []*message.Message) error {

@@ -1,12 +1,18 @@
 package conf
 
 type Config struct {
-	DiskQueueConf
-	MemoryQueueConf
+	UseMemoryQueue bool
+	UseDiskQueue   bool
+	*DiskQueueConf
+	*MemoryQueueConf
 
 	ReplicaTcpPort string
 	ProducerPort   string
 	ConsumerPort   string
+
+	ReplicaFactory int
+
+	ZeroAddress string
 }
 
 type DiskQueueConf struct {

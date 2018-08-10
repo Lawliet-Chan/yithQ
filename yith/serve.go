@@ -1,20 +1,76 @@
 package yith
 
 import (
-	"yithQ/meta"
+	"encoding/json"
+	"github.com/pkg/errors"
+	"io/ioutil"
 	"net/http"
+	"sync"
+	"yithQ/message"
+	"yithQ/meta"
+	. "yithQ/util/logger"
+	"yithQ/yith/conf"
 )
 
 type Server struct {
+	cfg      *conf.Config
 	metadata *meta.Metadata
-	node *Node
+	node     *Node
+	watcher  *Watcher
 }
 
 func (s *Server) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request) {
+	data, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		Lg.Errorf("receive messages from producer(%s) error : %v", req.RemoteAddr, err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	var msgs *message.Messages
+	err = json.Unmarshal(data, msgs)
+	if err != nil {
+		Lg.Errorf("json unmarshal data(%s) error : %v", string(data), err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if !s.checkeMetadataVersion(msgs.MetaVersion) {
+		//返回客户端，metadata已经改变
+		w.WriteHeader(http.StatusMovedPermanently)
+		return
+	}
+	var replicaErrCh chan error
+	var wg sync.WaitGroup
+	if s.cfg.ReplicaFactory != 0 {
+		s.replicateToOtherNodes(msgs.Topic, data, replicaErrCh, wg)
+	}
+	err = s.node.Produce(msgs.Topic, msgs.Msgs)
+	if err != nil {
+		Lg.Errorf("producer(%s) produce msgs to topic(%s) error : %v", req.RemoteAddr, msgs.Topic, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	wg.Wait()
+
+	if len(replicaErrCh) > s.cfg.ReplicaFactory/2 {
+		//失败replicate
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(errors.New("more than half relication nodes sync msgs failed").Error()))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func (s *Server) SendMsgToConsumers(w http.ResponseWriter, req *http.Request)  {
+func (s *Server) connToZero() {
 
 }
 
+func (s *Server) checkeMetadataVersion(metaVersion uint32) bool {
+	return s.metadata.Version() == metaVersion
+}

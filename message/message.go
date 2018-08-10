@@ -1,17 +1,15 @@
 package message
 
 type Message struct {
-	ID         int64
-	Body       interface{}
-	Timestamp  int64
-	ProducerIP string
-	SeqNum     uint64
+	ID         int64  `json:"id"`
+	Body       []byte `json:"body"`
+	Timestamp  int64  `json:"timestamp"`
+	ProducerIP string `json:"producer_ip"`
+	SeqNum     uint64 `json:"seq_num"`
 }
 
-func ToBytes(msg *Message) ([]byte, error) {
-
-}
-
-func ToMessage(data []byte) (*Message, error) {
-
+type Messages struct {
+	Topic       string     `json:"topic"`
+	Msgs        []*Message `json:"msgs"`
+	MetaVersion uint32     `json:"meta_version"`
 }

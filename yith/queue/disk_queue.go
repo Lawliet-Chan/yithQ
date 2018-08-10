@@ -13,8 +13,8 @@ type DiskQueue interface {
 type diskQueue struct {
 }
 
-func NewDiskQueue(conf *conf.DiskQueueConf) (DiskQueue,error) {
-	return &diskQueue{},nil
+func NewDiskQueue(conf *conf.DiskQueueConf) (DiskQueue, error) {
+	return &diskQueue{}, nil
 }
 
 func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
