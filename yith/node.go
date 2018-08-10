@@ -36,7 +36,7 @@ func (n *Node) Produce(topic string, msgs []*message.Message) error {
 	return err
 }
 
-func (n *Node) Consume(topic string, popOffset int64) ([]*message.Message, int64, error) {
+func (n *Node) Consume(topic string, popOffset int64) ([]*message.Message, error) {
 	partition, _ := n.topicPartition.Load(topic)
 	return partition.(*Partition).Consume(popOffset)
 }

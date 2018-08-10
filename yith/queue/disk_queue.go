@@ -7,7 +7,7 @@ import (
 
 type DiskQueue interface {
 	FillToDisk(msg []*message.Message) error
-	PopFromDisk(popOffset int64) ([]*message.Message, int64, error)
+	PopFromDisk(popOffset int64) ([]*message.Message, error)
 }
 
 type diskQueue struct {
@@ -21,6 +21,6 @@ func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
 
 }
 
-func (dq *diskQueue) PopFromDisk(popOffset int64) ([]*message.Message, int64, error) {
+func (dq *diskQueue) PopFromDisk(popOffset int64) ([]*message.Message, error) {
 
 }

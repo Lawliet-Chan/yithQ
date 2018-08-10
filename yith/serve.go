@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"sync"
 	"yithQ/message"
 	"yithQ/meta"
@@ -64,6 +65,29 @@ func (s *Server) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Reques
 }
 
 func (s *Server) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
+	topic := req.URL.Query()["topic"][0]
+	offsetStr := req.URL.Query()["offset"][0]
+	offset, err := strconv.ParseInt(offsetStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(string(err.Error())))
+		return
+	}
+	msgs, err := s.node.Consume(topic, offset)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(string(err.Error())))
+		return
+	}
+
+	data, err := json.Marshal(msgs)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(string(err.Error())))
+		return
+	}
+
+	w.Write(data)
 
 }
 

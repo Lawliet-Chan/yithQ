@@ -2,8 +2,12 @@ package yith
 
 import (
 	"bytes"
+	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"sync"
+	"yithQ/message"
+	. "yithQ/util/logger"
 )
 
 var NoneErr error
@@ -14,7 +18,7 @@ func (s *Server) replicateToOtherNodes(topic string, msgs []byte, replicaErrCh c
 	wg.Add(len(replicaNodes))
 	for _, node := range replicaNodes {
 		go func(node string) {
-			resp, err := http.Post(node, "application/json", bytes.NewBuffer(msgs))
+			resp, err := http.Post(node+"/replica", "application/json", bytes.NewBuffer(msgs))
 			if err != nil {
 				replicaErrCh <- err
 				return
@@ -26,6 +30,26 @@ func (s *Server) replicateToOtherNodes(topic string, msgs []byte, replicaErrCh c
 	}
 }
 
-func (s *Server) receiveReplicaFromOtherNodes() {
-
+func (s *Server) receiveReplicaFromOtherNodes(w http.ResponseWriter, req *http.Request) {
+	data, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		Lg.Errorf("receive messages from yith_broker(%s) error : %v", req.RemoteAddr, err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	var msgs *message.Messages
+	err = json.Unmarshal(data, msgs)
+	if err != nil {
+		Lg.Errorf("json unmarshal data(%s) error : %v", string(data), err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	err = s.node.Produce(msgs.Topic, msgs.Msgs)
+	if err != nil {
+		Lg.Errorf("yith_broker(%s) replicate msgs to topic(%s) error : %v", req.RemoteAddr, msgs.Topic, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }

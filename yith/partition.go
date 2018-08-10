@@ -26,6 +26,6 @@ func (p *Partition) Produce(msgs []*message.Message) error {
 	return p.q.Fill(msgs)
 }
 
-func (p *Partition) Consume(popOffset int64) ([]*message.Message, int64, error) {
+func (p *Partition) Consume(popOffset int64) ([]*message.Message, error) {
 	return p.q.Pop(popOffset)
 }

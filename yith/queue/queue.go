@@ -22,6 +22,6 @@ func (q *Queue) Fill(msgs []*message.Message) error {
 	return q.dq.FillToDisk(msgs)
 }
 
-func (q *Queue) Pop(popOffset int64) ([]*message.Message, int64, error) {
+func (q *Queue) Pop(popOffset int64) ([]*message.Message, error) {
 
 }
