@@ -105,3 +105,11 @@ func (s *Server) connToZero() {
 func (s *Server) checkeMetadataVersion(metaVersion uint32) bool {
 	return s.metadata.Version() == metaVersion
 }
+
+func (s *Server) fetchMetadataFromZero() {
+
+}
+
+func (s *Server) pushMetadataToZero() {
+
+}

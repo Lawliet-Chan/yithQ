@@ -6,7 +6,7 @@ import (
 )
 
 type Metadata struct {
-	topicNodeMap *sync.Map // map[*TopicMetadata]*Node
+	topicNodeMap *sync.Map // map[*TopicMetadata]NodeIP
 	version      uint32
 }
 
@@ -45,6 +45,17 @@ func (m *Metadata) FindNodeWithPartition(topic string, partition int, isReplica 
 
 }
 
+func (m *Metadata) FindPatitionID(topic,nodeIP string,isReplica bool) (parititionID int) {
+	m.topicNodeMap.Range(func(tm, node interface{}) bool {
+		if tm.(*TopicMetadata).Topic==topic&&node.(string)==nodeIP&&isReplica==tm.(*TopicMetadata).IsReplica {
+			parititionID=tm.(*TopicMetadata).PartitionID
+			return false
+		}
+		return true
+	})
+	return
+}
+
 func (m *Metadata) Version() uint32 {
 	return atomic.LoadUint32(&m.version)
 }
@@ -55,6 +66,6 @@ func (m *Metadata) UpdateVersion() {
 
 type TopicMetadata struct {
 	Topic     string
-	Partition int
+	PartitionID int
 	IsReplica bool
 }
