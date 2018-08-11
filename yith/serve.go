@@ -39,12 +39,19 @@ func (s *Server) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Reques
 		w.WriteHeader(http.StatusMovedPermanently)
 		return
 	}
+
+	if !s.node.ExistTopicPartition(msgs.Topic, msgs.PartitionID) {
+		s.node.AddTopicPartition(msgs.Topic, msgs.PartitionID, false)
+		//通知zero
+
+	}
+
 	var replicaErrCh chan error
 	var wg sync.WaitGroup
 	if s.cfg.ReplicaFactory != 0 {
 		s.replicateToOtherNodes(msgs.Topic, data, replicaErrCh, wg)
 	}
-	err = s.node.Produce(msgs.Topic, msgs.Msgs)
+	err = s.node.Produce(msgs.Topic, msgs.PartitionID, msgs.Msgs)
 	if err != nil {
 		Lg.Errorf("producer(%s) produce msgs to topic(%s) error : %v", req.RemoteAddr, msgs.Topic, err)
 		w.WriteHeader(http.StatusInternalServerError)

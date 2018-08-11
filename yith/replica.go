@@ -10,8 +10,6 @@ import (
 	. "yithQ/util/logger"
 )
 
-var NoneErr error
-
 func (s *Server) replicateToOtherNodes(topic string, msgs []byte, replicaErrCh chan error, wg sync.WaitGroup) {
 	replicaNodes := s.metadata.FindReplicaNodes(topic)
 	replicaErrCh = make(chan error, len(replicaNodes))
@@ -24,7 +22,6 @@ func (s *Server) replicateToOtherNodes(topic string, msgs []byte, replicaErrCh c
 				return
 			}
 			defer resp.Body.Close()
-			replicaErrCh <- NoneErr
 			wg.Done()
 		}(node)
 	}
@@ -44,12 +41,21 @@ func (s *Server) receiveReplicaFromOtherNodes(w http.ResponseWriter, req *http.R
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	err = s.node.Produce(msgs.Topic, msgs.Msgs)
+
+	if !s.node.ExistTopicPartition(msgs.Topic, msgs.PartitionID) {
+		//从zero拉取最新metadata
+
+		//更新本地metadata
+		s.node.AddTopicPartition()
+	}
+
+	err = s.node.Produce(msgs.Topic, msgs.PartitionID, msgs.Msgs)
 	if err != nil {
 		Lg.Errorf("yith_broker(%s) replicate msgs to topic(%s) error : %v", req.RemoteAddr, msgs.Topic, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		return
 	}
+
 	w.WriteHeader(http.StatusOK)
 }

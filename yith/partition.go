@@ -13,12 +13,12 @@ type Partition struct {
 	isRepplica bool
 }
 
-func NewPartition(id int, topicName string, isRepplica bool) *Partition {
+func NewPartition(id int, topicName string, isReplica bool) *Partition {
 	return &Partition{
 		id:        id,
 		topicName: topicName,
 		//q:q,
-		isRepplica: isRepplica,
+		isRepplica: isReplica,
 	}
 }
 
