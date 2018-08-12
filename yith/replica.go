@@ -46,8 +46,8 @@ func (s *Server) receiveReplicaFromOtherNodes(w http.ResponseWriter, req *http.R
 		//从zero拉取最新metadata
 
 		//更新本地metadata
-		partitionID:=s.metadata.FindPatitionID(msgs.Topic,s.node.IP,true)
-		s.node.AddTopicPartition(msgs.Topic,partitionID,true)
+		partitionID := s.metadata.FindPatitionID(msgs.Topic, s.node.IP, true)
+		s.node.AddTopicPartition(msgs.Topic, partitionID, true)
 	}
 
 	err = s.node.Produce(msgs.Topic, msgs.PartitionID, msgs.Msgs)

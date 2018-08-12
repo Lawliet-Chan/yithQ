@@ -45,10 +45,10 @@ func (m *Metadata) FindNodeWithPartition(topic string, partition int, isReplica 
 
 }
 
-func (m *Metadata) FindPatitionID(topic,nodeIP string,isReplica bool) (parititionID int) {
+func (m *Metadata) FindPatitionID(topic, nodeIP string, isReplica bool) (parititionID int) {
 	m.topicNodeMap.Range(func(tm, node interface{}) bool {
-		if tm.(*TopicMetadata).Topic==topic&&node.(string)==nodeIP&&isReplica==tm.(*TopicMetadata).IsReplica {
-			parititionID=tm.(*TopicMetadata).PartitionID
+		if tm.(*TopicMetadata).Topic == topic && node.(string) == nodeIP && isReplica == tm.(*TopicMetadata).IsReplica {
+			parititionID = tm.(*TopicMetadata).PartitionID
 			return false
 		}
 		return true
@@ -65,7 +65,7 @@ func (m *Metadata) UpdateVersion() {
 }
 
 type TopicMetadata struct {
-	Topic     string
+	Topic       string
 	PartitionID int
-	IsReplica bool
+	IsReplica   bool
 }
