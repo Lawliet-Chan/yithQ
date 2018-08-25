@@ -24,7 +24,6 @@ func (n *Node) AddTopicPartition(topic string, partitionID int, isReplica bool) 
 	n.topicPartition.Store(topic+"-"+strconv.Itoa(partitionID), NewPartition(partitionID, topic, isReplica))
 }
 
-//返回的bool表示是否为新增的topic
 func (n *Node) Produce(topic string, partitionID int, msgs []*message.Message) error {
 	partition, _ := n.topicPartition.Load(topic + "-" + strconv.Itoa(partitionID))
 	return partition.(*Partition).Produce(msgs)

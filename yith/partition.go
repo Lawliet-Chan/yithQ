@@ -10,6 +10,8 @@ type Partition struct {
 	topicName string
 	q         *queue.Queue
 
+	watermark uint64
+
 	isRepplica bool
 }
 
