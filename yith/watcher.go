@@ -17,12 +17,6 @@ type Watcher struct {
 	agent             *yapool.Agent
 }
 
-type Signal struct {
-	Typ SignalType `json:"typ"`
-}
-
-type SignalType int
-
 func NewWatcher(zero, heartbeatInterval, watchPort string) *Watcher {
 
 	return &Watcher{
@@ -43,7 +37,7 @@ func (w *Watcher) WatchZero(signalChan chan<- *Signal) {
 		byt, err := ioutil.ReadAll(r.Body)
 		defer r.Body.Close()
 		if err != nil {
-			Lg.Error("read event from zero error : %v", err)
+			Lg.Error("read signal from zero error : %v", err)
 			wr.WriteHeader(http.StatusBadRequest)
 			io.Copy(wr, bytes.NewBufferString(err.Error()))
 			return
@@ -51,7 +45,7 @@ func (w *Watcher) WatchZero(signalChan chan<- *Signal) {
 		var signal *Signal
 		err = json.Unmarshal(byt, signal)
 		if err != nil {
-			Lg.Error("decode event from zero error : %v", err)
+			Lg.Error("decode signal from zero error : %v", err)
 			wr.WriteHeader(http.StatusBadRequest)
 			io.Copy(wr, bytes.NewBufferString(err.Error()))
 			return
@@ -64,6 +58,6 @@ func (w *Watcher) WatchZero(signalChan chan<- *Signal) {
 	http.ListenAndServe(w.watchPort, nil)
 }
 
-func (w *Watcher) PushChangeToZero() {
+func (w *Watcher) PushChangeToZero(signalTyp SignalType) {
 
 }
