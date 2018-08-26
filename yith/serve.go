@@ -42,6 +42,7 @@ func (s *Serve) Run() {
 		http.HandleFunc("/", s.SendMsgToConsumers)
 		http.ListenAndServe(s.cfg.ConsumerPort, nil)
 	}(wg)
+	s.watcher.PushChangeToZero(NodeChange, nil)
 	go func(wg sync.WaitGroup) {
 		wg.Add(1)
 		s.watcher.SendHeartbeatToZero()
@@ -126,10 +127,6 @@ func (s *Serve) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.Write(data)
-
-}
-
-func (s *Serve) connToZero() {
 
 }
 
