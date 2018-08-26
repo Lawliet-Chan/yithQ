@@ -12,7 +12,9 @@ type Config struct {
 
 	ReplicaFactory int
 
-	ZeroAddress string
+	ZeroAddress       string
+	WatchPort         string
+	HeartbeatInterval string
 }
 
 type DiskQueueConf struct {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"yithQ/meta"
 	. "yithQ/util/logger"
 )
 
@@ -31,7 +32,7 @@ func (w *Watcher) SendHeartbeatToZero() {
 	w.agent.Heartbeat(w.heartbeatInterval)
 }
 
-func (w *Watcher) WatchZero(signalChan chan<- *Signal) {
+func (w *Watcher) WatchZero(metadataChan chan<- *meta.Metadata) {
 
 	http.HandleFunc("/", func(wr http.ResponseWriter, r *http.Request) {
 		byt, err := ioutil.ReadAll(r.Body)
@@ -42,22 +43,24 @@ func (w *Watcher) WatchZero(signalChan chan<- *Signal) {
 			io.Copy(wr, bytes.NewBufferString(err.Error()))
 			return
 		}
-		var signal *Signal
-		err = json.Unmarshal(byt, signal)
+		var metadata *meta.Metadata
+		err = json.Unmarshal(byt, metadata)
 		if err != nil {
 			Lg.Error("decode signal from zero error : %v", err)
 			wr.WriteHeader(http.StatusBadRequest)
 			io.Copy(wr, bytes.NewBufferString(err.Error()))
 			return
 		}
-
-		signalChan <- signal
+		metadataChan <- metadata
 
 	})
 
 	http.ListenAndServe(w.watchPort, nil)
 }
 
-func (w *Watcher) PushChangeToZero(signalTyp SignalType) {
-
+func (w *Watcher) PushChangeToZero(signal Signal, change interface{}) {
+	w.agent.SendMsgToCenter(&yapool.Msg{
+		Level: signal,
+		Msg:   change,
+	})
 }

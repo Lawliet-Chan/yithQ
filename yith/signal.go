@@ -1,13 +1,9 @@
 package yith
 
-type Signal struct {
-	Typ SignalType `json:"typ"`
-}
-
-type SignalType uint
+type Signal uint
 
 const (
-	NodeChange SignalType = iota
+	NodeChange Signal = iota
 	TopicChange
 )
 
@@ -18,6 +14,6 @@ var (
 
 var SignalTypes = []string{NodeChangeStr, TopicChangeStr}
 
-func (st SignalType) String() string {
+func (st Signal) String() string {
 	return SignalTypes[st]
 }

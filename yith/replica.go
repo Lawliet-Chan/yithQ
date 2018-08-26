@@ -10,7 +10,7 @@ import (
 	. "yithQ/util/logger"
 )
 
-func (s *Server) replicateToOtherNodes(topic string, msgs []byte, replicaErrCh chan error, wg sync.WaitGroup) {
+func (s *Serve) replicateToOtherNodes(topic string, msgs []byte, replicaErrCh chan error, wg sync.WaitGroup) {
 	replicaNodes := s.metadata.FindReplicaNodes(topic)
 	replicaErrCh = make(chan error, len(replicaNodes))
 	wg.Add(len(replicaNodes))
@@ -27,7 +27,7 @@ func (s *Server) replicateToOtherNodes(topic string, msgs []byte, replicaErrCh c
 	}
 }
 
-func (s *Server) receiveReplicaFromOtherNodes(w http.ResponseWriter, req *http.Request) {
+func (s *Serve) receiveReplicaFromOtherNodes(w http.ResponseWriter, req *http.Request) {
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		Lg.Errorf("receive messages from yith_broker(%s) error : %v", req.RemoteAddr, err)

@@ -13,14 +13,45 @@ import (
 	"yithQ/yith/conf"
 )
 
-type Server struct {
+type Serve struct {
 	cfg      *conf.Config
 	metadata *meta.Metadata
 	node     *Node
 	watcher  *Watcher
 }
 
-func (s *Server) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request) {
+func NewServe(cfg *conf.Config) *Serve {
+	return &Serve{
+		cfg:      cfg,
+		metadata: meta.NewMetadata(),
+		node:     NewNode(),
+		watcher:  NewWatcher(cfg.ZeroAddress, cfg.HeartbeatInterval, cfg.WatchPort),
+	}
+}
+
+func (s *Serve) Run() {
+	var wg sync.WaitGroup
+	go func(wg sync.WaitGroup) {
+		wg.Add(1)
+		http.HandleFunc("/", s.ReceiveMsgFromProducers)
+		http.ListenAndServe(s.cfg.ProducerPort, nil)
+	}(wg)
+
+	go func(wg sync.WaitGroup) {
+		wg.Add(1)
+		http.HandleFunc("/", s.SendMsgToConsumers)
+		http.ListenAndServe(s.cfg.ConsumerPort, nil)
+	}(wg)
+	go func(wg sync.WaitGroup) {
+		wg.Add(1)
+		s.watcher.SendHeartbeatToZero()
+	}(wg)
+
+	wg.Wait()
+
+}
+
+func (s *Serve) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request) {
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		Lg.Errorf("receive messages from producer(%s) error : %v", req.RemoteAddr, err)
@@ -43,7 +74,7 @@ func (s *Server) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Reques
 	if !s.node.ExistTopicPartition(msgs.Topic, msgs.PartitionID) {
 		s.node.AddTopicPartition(msgs.Topic, msgs.PartitionID, false)
 		//通知zero
-
+		s.watcher.PushChangeToZero(TopicChange, s.node.topicPartition)
 	}
 
 	var replicaErrCh chan error
@@ -71,7 +102,7 @@ func (s *Server) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Reques
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Server) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
+func (s *Serve) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 	topic := req.URL.Query()["topic"][0]
 	offsetStr := req.URL.Query()["offset"][0]
 	offset, err := strconv.ParseInt(offsetStr, 10, 64)
@@ -98,18 +129,10 @@ func (s *Server) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func (s *Server) connToZero() {
+func (s *Serve) connToZero() {
 
 }
 
-func (s *Server) checkeMetadataVersion(metaVersion uint32) bool {
+func (s *Serve) checkeMetadataVersion(metaVersion uint32) bool {
 	return s.metadata.Version() == metaVersion
-}
-
-func (s *Server) fetchMetadataFromZero() {
-
-}
-
-func (s *Server) pushMetadataToZero() {
-
 }

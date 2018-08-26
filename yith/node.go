@@ -7,14 +7,14 @@ import (
 )
 
 type Node struct {
-	IP             string
+	//IP             string
 	topicPartition *sync.Map //map[string]*Partition , key is topic+partitionID
 	//partitionReplica *sync.Map
 }
 
-func NewNode(ip string) *Node {
+func NewNode() *Node {
 	return &Node{
-		IP:             ip,
+		//IP:             ip,
 		topicPartition: &sync.Map{},
 		//partitionReplica:&sync.Map{},
 	}
