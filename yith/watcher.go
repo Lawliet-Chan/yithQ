@@ -64,3 +64,20 @@ func (w *Watcher) PushChangeToZero(signal Signal, change interface{}) {
 		Msg:   change,
 	})
 }
+
+func (w *Watcher) FetchMetadata() (*meta.Metadata, error) {
+	resp, err := http.Get(w.zero + "/fetch_meta")
+	if err != nil {
+		return nil, err
+	}
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	metadata := meta.NewMetadata()
+	err = metadata.Unmarshal(data)
+	if err != nil {
+		return nil, err
+	}
+	return metadata, nil
+}

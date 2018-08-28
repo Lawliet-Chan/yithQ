@@ -1,20 +1,43 @@
 package meta
 
 import (
+	"encoding/json"
 	"sync"
 	"sync/atomic"
 )
 
 type Metadata struct {
-	topicNodeMap *sync.Map // map[*TopicMetadata]NodeIP
-	version      uint32
+	TopicNodeMap *sync.Map // map[*TopicMetadata]NodeIP
+	Version      uint32
+}
+
+type JsonMetadata struct {
+	TopicNodeMap map[*TopicMetadata]string `json:"topic_node_map"`
+	Version      uint32                    `json:"version"`
 }
 
 func NewMetadata() *Metadata {
 	return &Metadata{
-		topicNodeMap: &sync.Map{},
-		version:      0,
+		TopicNodeMap: &sync.Map{},
+		Version:      0,
 	}
+}
+
+func (m *Metadata) Unmarshal(data []byte) error {
+	var jmd *JsonMetadata
+	err := json.Unmarshal(data, jmd)
+	if err != nil {
+		return err
+	}
+	m.Version = jmd.Version
+	for k, v := range jmd.TopicNodeMap {
+		m.TopicNodeMap.Store(k, v)
+	}
+	return nil
+}
+
+func (m *Metadata) Marshal() ([]byte, error) {
+
 }
 
 func (m *Metadata) Set(node, topic string, partition int, isRplica bool) {
@@ -46,7 +69,7 @@ func (m *Metadata) FindNodeWithPartition(topic string, partition int, isReplica 
 }
 
 func (m *Metadata) FindPatitionID(topic, nodeIP string, isReplica bool) (parititionID int) {
-	m.topicNodeMap.Range(func(tm, node interface{}) bool {
+	m.TopicNodeMap.Range(func(tm, node interface{}) bool {
 		if tm.(*TopicMetadata).Topic == topic && node.(string) == nodeIP && isReplica == tm.(*TopicMetadata).IsReplica {
 			parititionID = tm.(*TopicMetadata).PartitionID
 			return false
@@ -56,12 +79,12 @@ func (m *Metadata) FindPatitionID(topic, nodeIP string, isReplica bool) (paritit
 	return
 }
 
-func (m *Metadata) Version() uint32 {
-	return atomic.LoadUint32(&m.version)
+func (m *Metadata) GetVersion() uint32 {
+	return atomic.LoadUint32(&m.Version)
 }
 
 func (m *Metadata) UpdateVersion() {
-	atomic.AddUint32(&m.version, 1)
+	atomic.AddUint32(&m.Version, 1)
 }
 
 type TopicMetadata struct {
