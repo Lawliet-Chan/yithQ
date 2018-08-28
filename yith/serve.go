@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -21,10 +22,14 @@ type Serve struct {
 }
 
 func NewServe(cfg *conf.Config) *Serve {
+	ip, err := getLocalhostIP()
+	if err != nil {
+		panic(err)
+	}
 	return &Serve{
 		cfg:      cfg,
 		metadata: meta.NewMetadata(),
-		node:     NewNode(),
+		node:     NewNode(ip),
 		watcher:  NewWatcher(cfg.ZeroAddress, cfg.HeartbeatInterval, cfg.WatchPort),
 	}
 }
@@ -132,4 +137,19 @@ func (s *Serve) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 
 func (s *Serve) checkeMetadataVersion(metaVersion uint32) bool {
 	return s.metadata.Version() == metaVersion
+}
+
+func getLocalhostIP() (string, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "", err
+	}
+	for _, addr := range addrs {
+		if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() {
+			if ipNet.IP.To4() != nil {
+				return ipNet.IP.String(), nil
+			}
+		}
+	}
+	return "", nil
 }
