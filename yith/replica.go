@@ -7,11 +7,12 @@ import (
 	"net/http"
 	"sync"
 	"yithQ/message"
+	"yithQ/meta"
 	. "yithQ/util/logger"
 )
 
 func (s *Serve) replicateToOtherNodes(topic string, msgs []byte, replicaErrCh chan error, wg sync.WaitGroup) {
-	replicaNodes := s.metadata.FindReplicaNodes(topic)
+	replicaNodes := s.metadata.Load().(*meta.Metadata).FindReplicaNodes(topic)
 	replicaErrCh = make(chan error, len(replicaNodes))
 	wg.Add(len(replicaNodes))
 	for _, node := range replicaNodes {
@@ -44,9 +45,15 @@ func (s *Serve) receiveReplicaFromOtherNodes(w http.ResponseWriter, req *http.Re
 
 	if !s.node.ExistTopicPartition(msgs.Topic, msgs.PartitionID) {
 		//从zero拉取最新metadata
-
+		metadata, err := s.watcher.FetchMetadata()
+		if err != nil {
+			Lg.Errorf("fetch metadata from zero error : %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		s.updateMetadata(metadata)
 		//更新本地metadata
-		partitionID := s.metadata.FindPatitionID(msgs.Topic, s.node.IP, true)
+		partitionID := s.metadata.Load().(*meta.Metadata).FindPatitionID(msgs.Topic, s.node.IP, true)
 		s.node.AddTopicPartition(msgs.Topic, partitionID, true)
 	}
 

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"yithQ/message"
 	"yithQ/meta"
 	. "yithQ/util/logger"
@@ -15,8 +16,9 @@ import (
 )
 
 type Serve struct {
+	sync.RWMutex
 	cfg      *conf.Config
-	metadata *meta.Metadata
+	metadata *atomic.Value //*meta.Metadata
 	node     *Node
 	watcher  *Watcher
 }
@@ -28,7 +30,7 @@ func NewServe(cfg *conf.Config) *Serve {
 	}
 	return &Serve{
 		cfg:      cfg,
-		metadata: meta.NewMetadata(),
+		metadata: &atomic.Value{meta.NewMetadata()},
 		node:     NewNode(ip),
 		watcher:  NewWatcher(cfg.ZeroAddress, cfg.HeartbeatInterval, cfg.WatchPort),
 	}
@@ -136,7 +138,11 @@ func (s *Serve) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Serve) checkeMetadataVersion(metaVersion uint32) bool {
-	return s.metadata.Version() == metaVersion
+	return s.metadata.Load().(*meta.Metadata).Version == metaVersion
+}
+
+func (s *Serve) updateMetadata(metadata *meta.Metadata) {
+	s.metadata.Store(metadata)
 }
 
 func getLocalhostIP() (string, error) {

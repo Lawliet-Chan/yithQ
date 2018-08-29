@@ -83,7 +83,7 @@ func (m *Metadata) GetVersion() uint32 {
 	return atomic.LoadUint32(&m.Version)
 }
 
-func (m *Metadata) UpdateVersion() {
+func (m *Metadata) UpgradeVersion() {
 	atomic.AddUint32(&m.Version, 1)
 }
 
