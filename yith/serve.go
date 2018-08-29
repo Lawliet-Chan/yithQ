@@ -41,6 +41,7 @@ func (s *Serve) Run() {
 	go func(wg sync.WaitGroup) {
 		wg.Add(1)
 		http.HandleFunc("/", s.ReceiveMsgFromProducers)
+		http.HandleFunc("/replica", s.receiveReplicaFromOtherNodes)
 		http.ListenAndServe(s.cfg.ProducerPort, nil)
 	}(wg)
 
@@ -49,10 +50,23 @@ func (s *Serve) Run() {
 		http.HandleFunc("/", s.SendMsgToConsumers)
 		http.ListenAndServe(s.cfg.ConsumerPort, nil)
 	}(wg)
+
 	s.watcher.PushChangeToZero(NodeChange, nil)
 	go func(wg sync.WaitGroup) {
 		wg.Add(1)
 		s.watcher.SendHeartbeatToZero()
+	}(wg)
+
+	go func(wg sync.WaitGroup) {
+		wg.Add(2)
+		metadataChan := make(chan *meta.Metadata, 0)
+		go s.watcher.WatchZero(metadataChan)
+		for {
+			select {
+			case metadata := <-metadataChan:
+				s.metadata.Store(metadata)
+			}
+		}
 	}(wg)
 
 	wg.Wait()
