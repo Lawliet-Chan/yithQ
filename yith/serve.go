@@ -37,6 +37,11 @@ func NewServe(cfg *conf.Config) *Serve {
 }
 
 func (s *Serve) Run() {
+	metadata, err := s.watcher.FetchMetadata()
+	if err != nil {
+		Lg.Fatalf("fetch metadata from zero(%s) error : %v", s.cfg.ZeroAddress, err)
+	}
+	s.updateMetadata(metadata)
 	var wg sync.WaitGroup
 	go func(wg sync.WaitGroup) {
 		wg.Add(1)
