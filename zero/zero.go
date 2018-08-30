@@ -23,17 +23,14 @@ func (z *Zero) Run() {
 }
 
 func (z *Zero) ListenYith(yithAddrChan chan<- string) {
-	z.center.Receive(z.cfg.HeartbeatTimeout, yithAddrChan)
+	z.center.ReceiveWithFunc(func(remoteAddr string, msg *yapool.Msg) {
+
+	},
+	z.cfg.HeartbeatTimeout,
+	yithAddrChan)
 }
 
 func (z *Zero) NortifyAllYith() {
 
 }
 
-func (z *Zero) listenHeartbeat() {
-
-}
-
-func (z *Zero) listenChangeSignal() {
-
-}

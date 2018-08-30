@@ -51,7 +51,7 @@ func (s *Serve) Run() {
 		http.ListenAndServe(s.cfg.ConsumerPort, nil)
 	}(wg)
 
-	s.watcher.PushChangeToZero(NodeChange, nil)
+	s.watcher.PushChangeToZero(meta.NodeChange, nil)
 	go func(wg sync.WaitGroup) {
 		wg.Add(1)
 		s.watcher.SendHeartbeatToZero()
@@ -96,7 +96,7 @@ func (s *Serve) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request
 	if !s.node.ExistTopicPartition(msgs.Topic, msgs.PartitionID) {
 		s.node.AddTopicPartition(msgs.Topic, msgs.PartitionID, false)
 		//通知zero
-		s.watcher.PushChangeToZero(TopicChange, s.node.topicPartition)
+		s.watcher.PushChangeToZero(meta.TopicChange, s.node.topicPartition)
 	}
 
 	var replicaErrCh chan error

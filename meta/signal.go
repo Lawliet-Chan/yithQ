@@ -1,4 +1,4 @@
-package yith
+package meta
 
 type Signal uint
 

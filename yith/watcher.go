@@ -58,7 +58,7 @@ func (w *Watcher) WatchZero(metadataChan chan<- *meta.Metadata) {
 	http.ListenAndServe(w.watchPort, nil)
 }
 
-func (w *Watcher) PushChangeToZero(signal Signal, change interface{}) {
+func (w *Watcher) PushChangeToZero(signal meta.Signal, change interface{}) {
 	w.agent.SendMsgToCenter(&yapool.Msg{
 		Level: signal,
 		Msg:   change,
