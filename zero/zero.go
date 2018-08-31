@@ -15,6 +15,7 @@ type Zero struct {
 func NewZero(cfg *Config) *Zero {
 	return &Zero{
 		yithNodes: make([]string, 0),
+		metadata:  meta.NewMetadata(),
 		center:    yapool.NewCenter(cfg.ListenPort),
 		cfg:       cfg,
 	}
@@ -47,11 +48,11 @@ func (z *Zero) NortifyAllYith() {
 }
 
 func (z *Zero) AddTopic(yithNode string, topic *meta.TopicMetadata) {
-
+	z.metadata.SetTopic(yithNode, topic)
 }
 
 func (z *Zero) DeleteTopic(yithNode string, topic *meta.TopicMetadata) {
-
+	//z.metadata.RemoveTopic(yithNode, topic)
 }
 
 func (z *Zero) yithNodeExpire(yithAddr string) {

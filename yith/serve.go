@@ -101,13 +101,16 @@ func (s *Serve) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request
 	if !s.node.ExistTopicPartition(msgs.Topic, msgs.PartitionID) {
 		s.node.AddTopicPartition(msgs.Topic, msgs.PartitionID, false)
 		//通知zero
-		s.watcher.PushChangeToZero(meta.TopicAddChange, s.node.topicPartition)
+		s.watcher.PushChangeToZero(meta.TopicAddChange, &meta.TopicMetadata{
+			Topic:       msgs.Topic,
+			PartitionID: msgs.PartitionID,
+			IsReplica:   false})
 	}
 
 	var replicaErrCh chan error
 	var wg sync.WaitGroup
 	if s.cfg.ReplicaFactory != 0 {
-		s.replicateToOtherNodes(msgs.Topic, data, replicaErrCh, wg)
+		go s.replicateToOtherNodes(msgs.Topic, data, replicaErrCh, wg)
 	}
 	err = s.node.Produce(msgs.Topic, msgs.PartitionID, msgs.Msgs)
 	if err != nil {

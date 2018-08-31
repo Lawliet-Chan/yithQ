@@ -40,19 +40,15 @@ func (m *Metadata) Marshal() ([]byte, error) {
 
 }
 
-func (m *Metadata) Set(node, topic string, partition int, isRplica bool) {
-
+func (m *Metadata) SetTopic(node string, metadata *TopicMetadata) {
+	m.TopicNodeMap.Store(metadata,node)
 }
 
 func (m *Metadata) RemoveNode(node string) {
 
 }
 
-func (m *Metadata) RemoveTopic(topic string) {
-
-}
-
-func (m *Metadata) RemoveTopicPartition(topic string, partition int) {
+func (m *Metadata) RemoveTopic(node string, metadata *TopicMetadata) {
 
 }
 
@@ -61,7 +57,16 @@ func (m *Metadata) FindNode(topic string) string {
 }
 
 func (m *Metadata) FindReplicaNodes(topic string) []string {
+	nodes := make([]string, 0)
+	m.TopicNodeMap.Range(func(tmi, node interface{}) bool {
+		tm := tmi.(*TopicMetadata)
+		if tm.Topic == topic && tm.IsReplica {
+			nodes = append(nodes, node.(string))
+		}
 
+		return true
+	})
+	return nodes
 }
 
 func (m *Metadata) FindNodeWithPartition(topic string, partition int, isReplica bool) string {
