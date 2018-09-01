@@ -7,12 +7,12 @@ import (
 )
 
 type Metadata struct {
-	TopicNodeMap *sync.Map // map[*TopicMetadata]NodeIP
+	TopicNodeMap *sync.Map // map[TopicMetadata]NodeIP
 	Version      uint32
 }
 
 type JsonMetadata struct {
-	TopicNodeMap map[*TopicMetadata]string `json:"topic_node_map"`
+	TopicNodeMap map[TopicMetadata]string `json:"topic_node_map"`
 	Version      uint32                    `json:"version"`
 }
 
@@ -40,7 +40,7 @@ func (m *Metadata) Marshal() ([]byte, error) {
 
 }
 
-func (m *Metadata) SetTopic(node string, metadata *TopicMetadata) {
+func (m *Metadata) SetTopic(node string, metadata TopicMetadata) {
 	m.TopicNodeMap.Store(metadata,node)
 }
 
@@ -48,7 +48,7 @@ func (m *Metadata) RemoveNode(node string) {
 
 }
 
-func (m *Metadata) RemoveTopic(node string, metadata *TopicMetadata) {
+func (m *Metadata) RemoveTopic(node string, metadata TopicMetadata) {
 
 }
 
@@ -59,7 +59,7 @@ func (m *Metadata) FindNode(topic string) string {
 func (m *Metadata) FindReplicaNodes(topic string) []string {
 	nodes := make([]string, 0)
 	m.TopicNodeMap.Range(func(tmi, node interface{}) bool {
-		tm := tmi.(*TopicMetadata)
+		tm := tmi.(TopicMetadata)
 		if tm.Topic == topic && tm.IsReplica {
 			nodes = append(nodes, node.(string))
 		}
@@ -75,8 +75,8 @@ func (m *Metadata) FindNodeWithPartition(topic string, partition int, isReplica 
 
 func (m *Metadata) FindPatitionID(topic, nodeIP string, isReplica bool) (parititionID int) {
 	m.TopicNodeMap.Range(func(tm, node interface{}) bool {
-		if tm.(*TopicMetadata).Topic == topic && node.(string) == nodeIP && isReplica == tm.(*TopicMetadata).IsReplica {
-			parititionID = tm.(*TopicMetadata).PartitionID
+		if tm.(TopicMetadata).Topic == topic && node.(string) == nodeIP && isReplica == tm.(TopicMetadata).IsReplica {
+			parititionID = tm.(TopicMetadata).PartitionID
 			return false
 		}
 		return true

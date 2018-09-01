@@ -30,9 +30,9 @@ func (z *Zero) ListenYith() {
 	go z.center.ReceiveWithFunc(func(remoteAddr string, msg *yapool.Msg) {
 		switch msg.Level {
 		case meta.TopicAddChange:
-			z.AddTopic(remoteAddr, msg.Msg.(*meta.TopicMetadata))
+			z.AddTopic(remoteAddr, msg.Msg.(meta.TopicMetadata))
 		case meta.TopicDeleteChange:
-			z.DeleteTopic(remoteAddr, msg.Msg.(*meta.TopicMetadata))
+			z.DeleteTopic(remoteAddr, msg.Msg.(meta.TopicMetadata))
 		case meta.NodeChange:
 			z.yithNodes = append(z.yithNodes, remoteAddr)
 		}
@@ -47,11 +47,11 @@ func (z *Zero) NortifyAllYith() {
 
 }
 
-func (z *Zero) AddTopic(yithNode string, topic *meta.TopicMetadata) {
+func (z *Zero) AddTopic(yithNode string, topic meta.TopicMetadata) {
 	z.metadata.SetTopic(yithNode, topic)
 }
 
-func (z *Zero) DeleteTopic(yithNode string, topic *meta.TopicMetadata) {
+func (z *Zero) DeleteTopic(yithNode string, topic meta.TopicMetadata) {
 	//z.metadata.RemoveTopic(yithNode, topic)
 }
 

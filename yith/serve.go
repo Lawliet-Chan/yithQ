@@ -101,7 +101,7 @@ func (s *Serve) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request
 	if !s.node.ExistTopicPartition(msgs.Topic, msgs.PartitionID) {
 		s.node.AddTopicPartition(msgs.Topic, msgs.PartitionID, false)
 		//通知zero
-		s.watcher.PushChangeToZero(meta.TopicAddChange, &meta.TopicMetadata{
+		s.watcher.PushChangeToZero(meta.TopicAddChange, meta.TopicMetadata{
 			Topic:       msgs.Topic,
 			PartitionID: msgs.PartitionID,
 			IsReplica:   false})
