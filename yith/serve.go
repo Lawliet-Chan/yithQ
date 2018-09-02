@@ -69,7 +69,9 @@ func (s *Serve) Run() {
 		for {
 			select {
 			case metadata := <-metadataChan:
-				s.metadata.Store(metadata)
+				if !s.checkeMetadataVersion(metadata.Version) {
+					s.metadata.Store(metadata)
+				}
 			}
 		}
 	}(wg)
@@ -104,7 +106,9 @@ func (s *Serve) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request
 		s.watcher.PushChangeToZero(meta.TopicAddChange, meta.TopicMetadata{
 			Topic:       msgs.Topic,
 			PartitionID: msgs.PartitionID,
-			IsReplica:   false})
+			IsReplica:   false,
+			ReplicaFactory:s.cfg.ReplicaFactory,
+		} )
 	}
 
 	var replicaErrCh chan error

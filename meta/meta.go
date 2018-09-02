@@ -49,7 +49,7 @@ func (m *Metadata) RemoveNode(node string) {
 }
 
 func (m *Metadata) RemoveTopic(node string, metadata TopicMetadata) {
-
+	m.TopicNodeMap.Delete(metadata)
 }
 
 func (m *Metadata) FindNode(topic string) string {
@@ -84,6 +84,10 @@ func (m *Metadata) FindPatitionID(topic, nodeIP string, isReplica bool) (paritit
 	return
 }
 
+func (m *Metadata) Range(f func(key, value interface{}) bool) {
+	m.TopicNodeMap.Range(f)
+}
+
 func (m *Metadata) GetVersion() uint32 {
 	return atomic.LoadUint32(&m.Version)
 }
@@ -96,4 +100,5 @@ type TopicMetadata struct {
 	Topic       string
 	PartitionID int
 	IsReplica   bool
+	ReplicaFactory int
 }
