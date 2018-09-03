@@ -104,11 +104,11 @@ func (s *Serve) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request
 		s.node.AddTopicPartition(msgs.Topic, msgs.PartitionID, false)
 		//通知zero
 		s.watcher.PushChangeToZero(meta.TopicAddChange, meta.TopicMetadata{
-			Topic:       msgs.Topic,
-			PartitionID: msgs.PartitionID,
-			IsReplica:   false,
-			ReplicaFactory:s.cfg.ReplicaFactory,
-		} )
+			Topic:          msgs.Topic,
+			PartitionID:    msgs.PartitionID,
+			IsReplica:      false,
+			ReplicaFactory: s.cfg.ReplicaFactory,
+		})
 	}
 
 	var replicaErrCh chan error

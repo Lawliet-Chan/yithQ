@@ -13,7 +13,7 @@ type Metadata struct {
 
 type JsonMetadata struct {
 	TopicNodeMap map[TopicMetadata]string `json:"topic_node_map"`
-	Version      uint32                    `json:"version"`
+	Version      uint32                   `json:"version"`
 }
 
 func NewMetadata() *Metadata {
@@ -41,7 +41,7 @@ func (m *Metadata) Marshal() ([]byte, error) {
 }
 
 func (m *Metadata) SetTopic(node string, metadata TopicMetadata) {
-	m.TopicNodeMap.Store(metadata,node)
+	m.TopicNodeMap.Store(metadata, node)
 }
 
 func (m *Metadata) RemoveNode(node string) {
@@ -97,8 +97,8 @@ func (m *Metadata) UpgradeVersion() {
 }
 
 type TopicMetadata struct {
-	Topic       string
-	PartitionID int
-	IsReplica   bool
+	Topic          string
+	PartitionID    int
+	IsReplica      bool
 	ReplicaFactory int
 }
