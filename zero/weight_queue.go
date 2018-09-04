@@ -76,6 +76,40 @@ func (wq *WeightQueue) PopNodes(count int) []string {
 	return nodes
 }
 
+func (wq *WeightQueue) PopNodesWithout(count int, withoutNode string) []string {
+	wq.RLock()
+	defer wq.RUnlock()
+	nws := wq.nodeWeights[:count+1]
+	nodes := make([]string, 0)
+	for _, nw := range nws {
+		if nw.Node == withoutNode {
+			continue
+		}
+		nodes = append(nodes, nw.Node)
+	}
+	return nodes[:count]
+}
+
+func (wq *WeightQueue) DeleteNode(nodeName string) {
+	wq.Lock()
+	defer wq.Unlock()
+	for tmd, node := range wq.topicNode {
+		if node == nodeName {
+			delete(wq.topicNode, tmd)
+		}
+	}
+	for i, nw := range wq.nodeWeights {
+		if nw.Node == nodeName {
+			if i == wq.nodeWeights.Len()-1 {
+				wq.nodeWeights = wq.nodeWeights[:i]
+			} else {
+				wq.nodeWeights = append(wq.nodeWeights[:i], wq.nodeWeights[i+1:]...)
+			}
+		}
+	}
+
+}
+
 /*
 func (wq *WeightQueue) DescPopNodes(count int) []string {
 
