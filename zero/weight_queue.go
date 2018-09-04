@@ -31,6 +31,35 @@ func (nws NodeWeights) Less(i, j int) bool {
 	return nws[i].Weight < nws[j].Weight
 }
 
+func (nws NodeWeights) AddNode(node string) {
+	exist := false
+	for _, nw := range nws {
+		if nw.Node == node {
+			exist = true
+			break
+		}
+	}
+	if !exist {
+		nws = append(nws, &NodeWeight{
+			Node:   node,
+			Weight: 0,
+		})
+	}
+
+}
+
+func (nws NodeWeights) DeleteNode(nodeName string) {
+	for i, nw := range nws {
+		if nw.Node == nodeName {
+			if i == nws.Len()-1 {
+				nws = nws[:i]
+			} else {
+				nws = append(nws[:i], nws[i+1:]...)
+			}
+		}
+	}
+}
+
 func NewWeightQueue() *WeightQueue {
 	return &WeightQueue{
 		nodeWeights: make([]*NodeWeight, 0),
@@ -42,20 +71,26 @@ func (wq *WeightQueue) Put(node string, topic meta.TopicMetadata) {
 	wq.Lock()
 	defer wq.Unlock()
 	wq.topicNode[topic] = node
-	exists := false
+	//exists := false
 	for _, nw := range wq.nodeWeights {
 		if nw.Node == node {
 			nw.Weight++
-			exists = true
+			//exists = true
 		}
 	}
-	if !exists {
+	/*if !exists {
 		wq.nodeWeights = append(wq.nodeWeights, &NodeWeight{
 			Node:   node,
 			Weight: 0,
 		})
-	}
+	}*/
 	sort.Sort(wq.nodeWeights)
+}
+
+func (wq *WeightQueue) AddNode(node string) {
+	wq.Lock()
+	defer wq.Unlock()
+	wq.nodeWeights.AddNode(node)
 }
 
 func (wq *WeightQueue) GetNode(topic meta.TopicMetadata) string {
@@ -98,17 +133,19 @@ func (wq *WeightQueue) DeleteNode(nodeName string) {
 			delete(wq.topicNode, tmd)
 		}
 	}
-	for i, nw := range wq.nodeWeights {
-		if nw.Node == nodeName {
-			if i == wq.nodeWeights.Len()-1 {
-				wq.nodeWeights = wq.nodeWeights[:i]
-			} else {
-				wq.nodeWeights = append(wq.nodeWeights[:i], wq.nodeWeights[i+1:]...)
-			}
-		}
-	}
+	wq.nodeWeights.DeleteNode(nodeName)
 
 }
+
+/*for i, nw := range wq.nodeWeights {
+	if nw.Node == nodeName {
+		if i == wq.nodeWeights.Len()-1 {
+			wq.nodeWeights = wq.nodeWeights[:i]
+		} else {
+			wq.nodeWeights = append(wq.nodeWeights[:i], wq.nodeWeights[i+1:]...)
+		}
+	}
+}*/
 
 /*
 func (wq *WeightQueue) DescPopNodes(count int) []string {

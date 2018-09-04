@@ -84,10 +84,6 @@ func (m *Metadata) FindPatitionID(topic, nodeIP string, isReplica bool) (paritit
 	return
 }
 
-func (m *Metadata) Range(f func(key, value interface{}) bool) {
-	m.TopicNodeMap.Range(f)
-}
-
 func (m *Metadata) GetVersion() uint32 {
 	return atomic.LoadUint32(&m.Version)
 }

@@ -8,7 +8,7 @@ import (
 
 type Zero struct {
 	sync.Mutex
-	yithNodes []string
+	//yithNodes []string
 	//metadata    *meta.Metadata
 	weightQueue *WeightQueue
 	center      *yapool.Center
@@ -17,7 +17,7 @@ type Zero struct {
 
 func NewZero(cfg *Config) *Zero {
 	return &Zero{
-		yithNodes: make([]string, 0),
+		//yithNodes: make([]string, 0),
 		//metadata:    meta.NewMetadata(),
 		weightQueue: NewWeightQueue(),
 		center:      yapool.NewCenter(cfg.ListenPort),
@@ -38,7 +38,8 @@ func (z *Zero) ListenYith() {
 		case meta.TopicDeleteChange:
 			z.DeleteTopic(remoteAddr, msg.Msg.(meta.TopicMetadata))
 		case meta.NodeChange:
-			z.yithNodes = append(z.yithNodes, remoteAddr)
+			z.AddNode(remoteAddr)
+			//z.yithNodes = append(z.yithNodes, remoteAddr)
 		}
 	},
 		z.cfg.HeartbeatTimeout,
@@ -52,7 +53,7 @@ func (z *Zero) NortifyAllYith() {
 }
 
 func (z *Zero) AddTopic(yithNode string, topic meta.TopicMetadata) {
-	nodes := z.weightQueue.PopNodesWithout(topic.ReplicaFactory,yithNode)
+	nodes := z.weightQueue.PopNodesWithout(topic.ReplicaFactory, yithNode)
 	for i, node := range nodes {
 		z.weightQueue.Put(node, meta.TopicMetadata{
 			Topic:          topic.Topic,
@@ -62,6 +63,10 @@ func (z *Zero) AddTopic(yithNode string, topic meta.TopicMetadata) {
 		})
 	}
 	//z.metadata.SetTopic(yithNode, topic)
+}
+
+func (z *Zero) AddNode(yithNode string) {
+	z.weightQueue.AddNode(yithNode)
 }
 
 func (z *Zero) DeleteTopic(yithNode string, topic meta.TopicMetadata) {

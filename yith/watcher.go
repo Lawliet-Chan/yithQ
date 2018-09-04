@@ -2,7 +2,6 @@ package yith
 
 import (
 	"bytes"
-	"encoding/json"
 	"github.com/CrocdileChan/yapool"
 	"io"
 	"io/ioutil"
@@ -43,8 +42,8 @@ func (w *Watcher) WatchZero(metadataChan chan<- *meta.Metadata) {
 			io.Copy(wr, bytes.NewBufferString(err.Error()))
 			return
 		}
-		var metadata *meta.Metadata
-		err = json.Unmarshal(byt, metadata)
+		metadata := meta.NewMetadata()
+		err = metadata.Unmarshal(byt)
 		if err != nil {
 			Lg.Error("decode signal from zero error : %v", err)
 			wr.WriteHeader(http.StatusBadRequest)
