@@ -32,11 +32,15 @@ func NewZero(cfg *Config) *Zero {
 
 func (z *Zero) Run() {
 	go z.ListenYith()
-
+	go func() {
+		http.HandleFunc("/fetch_meta", z.ForFetchMetadata)
+		http.ListenAndServe(z.cfg.ForFetchMetaPort, nil)
+	}()
+	select {}
 }
 
 func (z *Zero) ListenYith() {
-	go z.center.ReceiveWithFunc(func(remoteAddr string, msg *yapool.Msg) {
+	z.center.ReceiveWithFunc(func(remoteAddr string, msg *yapool.Msg) {
 		switch msg.Level {
 		case meta.TopicAddChange:
 			z.AddTopic(remoteAddr, msg.Msg.(meta.TopicMetadata))
@@ -100,4 +104,16 @@ func (z *Zero) DeleteTopic(yithNode string, topic meta.TopicMetadata) {
 
 func (z *Zero) yithNodeExpire(yithAddr string) {
 	z.weightQueue.DeleteNode(yithAddr)
+}
+
+func (z *Zero) ForFetchMetadata(w http.ResponseWriter, req *http.Request) {
+	topicNodeMap := z.weightQueue.TopicNode()
+	version := atomic.LoadUint32(&z.metadataVersion)
+	byt, err := meta.NewMetadata().Marshal(topicNodeMap, version)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	w.Write(byt)
 }

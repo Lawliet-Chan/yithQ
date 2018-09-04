@@ -16,7 +16,6 @@ import (
 )
 
 type Serve struct {
-	sync.RWMutex
 	cfg      *conf.Config
 	metadata *atomic.Value //*meta.Metadata
 	node     *Node
@@ -42,28 +41,23 @@ func (s *Serve) Run() {
 		Lg.Fatalf("fetch metadata from zero(%s) error : %v", s.cfg.ZeroAddress, err)
 	}
 	s.updateMetadata(metadata)
-	var wg sync.WaitGroup
-	go func(wg sync.WaitGroup) {
-		wg.Add(1)
+	go func() {
 		http.HandleFunc("/", s.ReceiveMsgFromProducers)
 		http.HandleFunc("/replica", s.receiveReplicaFromOtherNodes)
 		http.ListenAndServe(s.cfg.ProducerPort, nil)
-	}(wg)
+	}()
 
-	go func(wg sync.WaitGroup) {
-		wg.Add(1)
+	go func() {
 		http.HandleFunc("/", s.SendMsgToConsumers)
 		http.ListenAndServe(s.cfg.ConsumerPort, nil)
-	}(wg)
+	}()
 
 	s.watcher.PushChangeToZero(meta.NodeChange, nil)
-	go func(wg sync.WaitGroup) {
-		wg.Add(1)
+	go func() {
 		s.watcher.SendHeartbeatToZero()
-	}(wg)
+	}()
 
-	go func(wg sync.WaitGroup) {
-		wg.Add(2)
+	go func() {
 		metadataChan := make(chan *meta.Metadata, 0)
 		go s.watcher.WatchZero(metadataChan)
 		for {
@@ -74,9 +68,8 @@ func (s *Serve) Run() {
 				}
 			}
 		}
-	}(wg)
-
-	wg.Wait()
+	}()
+	select {}
 
 }
 
