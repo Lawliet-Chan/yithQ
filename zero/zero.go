@@ -1,27 +1,32 @@
 package zero
 
 import (
+	"bytes"
 	"github.com/CrocdileChan/yapool"
-	"sync"
+	"net/http"
+	"strings"
+	"sync/atomic"
 	"yithQ/meta"
 )
 
 type Zero struct {
-	sync.Mutex
+	//sync.Mutex
 	//yithNodes []string
 	//metadata    *meta.Metadata
-	weightQueue *WeightQueue
-	center      *yapool.Center
-	cfg         *Config
+	weightQueue     *WeightQueue
+	center          *yapool.Center
+	cfg             *Config
+	metadataVersion uint32
 }
 
 func NewZero(cfg *Config) *Zero {
 	return &Zero{
 		//yithNodes: make([]string, 0),
 		//metadata:    meta.NewMetadata(),
-		weightQueue: NewWeightQueue(),
-		center:      yapool.NewCenter(cfg.ListenPort),
-		cfg:         cfg,
+		weightQueue:     NewWeightQueue(),
+		center:          yapool.NewCenter(cfg.ListenPort),
+		cfg:             cfg,
+		metadataVersion: 0,
 	}
 }
 
@@ -35,10 +40,13 @@ func (z *Zero) ListenYith() {
 		switch msg.Level {
 		case meta.TopicAddChange:
 			z.AddTopic(remoteAddr, msg.Msg.(meta.TopicMetadata))
+			z.NortifyAllYiths()
 		case meta.TopicDeleteChange:
 			z.DeleteTopic(remoteAddr, msg.Msg.(meta.TopicMetadata))
+			z.NortifyAllYiths()
 		case meta.NodeChange:
 			z.AddNode(remoteAddr)
+			z.NortifyAllYiths()
 			//z.yithNodes = append(z.yithNodes, remoteAddr)
 		}
 	},
@@ -48,8 +56,25 @@ func (z *Zero) ListenYith() {
 
 }
 
-func (z *Zero) NortifyAllYith() {
+func (z *Zero) NortifyAllYiths() error {
+	topicNodeMap := z.weightQueue.TopicNode()
+	newVersion := atomic.AddUint32(&z.metadataVersion, 1)
+	byt, err := meta.NewMetadata().Marshal(topicNodeMap, newVersion)
+	if err != nil {
+		return err
+	}
+	for _, nodeIp := range topicNodeMap {
+		go func(nodeIp string) {
+			node := strings.Split(nodeIp, ":")[0] + z.cfg.YithWatchPort
+			resp, err := http.Post(node, "application/json", bytes.NewBuffer(byt))
+			if err != nil {
+				return
+			}
+			resp.Body.Close()
+		}(nodeIp)
 
+	}
+	return nil
 }
 
 func (z *Zero) AddTopic(yithNode string, topic meta.TopicMetadata) {

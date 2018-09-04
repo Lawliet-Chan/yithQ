@@ -36,8 +36,12 @@ func (m *Metadata) Unmarshal(data []byte) error {
 	return nil
 }
 
-func (m *Metadata) Marshal() ([]byte, error) {
+func (m *Metadata) Marshal(tnm map[TopicMetadata]string, version uint32) ([]byte, error) {
 
+	return json.Marshal(JsonMetadata{
+		TopicNodeMap: tnm,
+		Version:      version,
+	})
 }
 
 func (m *Metadata) SetTopic(node string, metadata TopicMetadata) {

@@ -137,6 +137,12 @@ func (wq *WeightQueue) DeleteNode(nodeName string) {
 
 }
 
+func (wq *WeightQueue) TopicNode() map[meta.TopicMetadata]string {
+	wq.RLock()
+	wq.RUnlock()
+	return wq.topicNode
+}
+
 /*for i, nw := range wq.nodeWeights {
 	if nw.Node == nodeName {
 		if i == wq.nodeWeights.Len()-1 {
