@@ -8,18 +8,20 @@ import (
 
 type Zero struct {
 	sync.Mutex
-	yithNodes []string
-	metadata  *meta.Metadata
-	center    *yapool.Center
-	cfg       *Config
+	yithNodes   []string
+	metadata    *meta.Metadata
+	weightQueue *WeightQueue
+	center      *yapool.Center
+	cfg         *Config
 }
 
 func NewZero(cfg *Config) *Zero {
 	return &Zero{
-		yithNodes: make([]string, 0),
-		metadata:  meta.NewMetadata(),
-		center:    yapool.NewCenter(cfg.ListenPort),
-		cfg:       cfg,
+		yithNodes:   make([]string, 0),
+		metadata:    meta.NewMetadata(),
+		weightQueue: NewWeightQueue(),
+		center:      yapool.NewCenter(cfg.ListenPort),
+		cfg:         cfg,
 	}
 }
 
@@ -50,16 +52,9 @@ func (z *Zero) NortifyAllYith() {
 }
 
 func (z *Zero) AddTopic(yithNode string, topic meta.TopicMetadata) {
-	nodeTopicWeight := make(map[string]int)
-	z.metadata.Range(func(tmd, node interface{}) bool {
-		if weight, ok := nodeTopicWeight[node.(string)]; ok {
-			nodeTopicWeight[node.(string)] = weight + 1
-		} else {
-			nodeTopicWeight[node.(string)] = 0
-		}
-		return true
-	})
-	z.metadata.SetTopic(yithNode, topic)
+	nodes := z.weightQueue.PopNodes(topic.ReplicaFactory)
+
+	//z.metadata.SetTopic(yithNode, topic)
 }
 
 func (z *Zero) DeleteTopic(yithNode string, topic meta.TopicMetadata) {
