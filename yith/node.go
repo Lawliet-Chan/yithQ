@@ -6,9 +6,9 @@ import (
 )
 
 type Node struct {
-	IP             string
-	topicPartition *sync.Map //map[TopicPartitionInfo]*Partition , key is topic+partitionID
-	//partitionReplica *sync.Map
+	IP                string
+	topicPartition    *sync.Map //map[TopicPartitionInfo]*Partition
+	partitionID2Topic *sync.Map
 }
 
 type TopicPartitionInfo struct {
@@ -18,9 +18,9 @@ type TopicPartitionInfo struct {
 
 func NewNode(ip string) *Node {
 	return &Node{
-		IP:             ip,
-		topicPartition: &sync.Map{},
-		//partitionReplica:&sync.Map{},
+		IP:                ip,
+		topicPartition:    &sync.Map{},
+		partitionID2Topic: &sync.Map{},
 	}
 }
 
@@ -29,6 +29,7 @@ func (n *Node) AddTopicPartition(topic string, partitionID int, isReplica bool) 
 		Topic:       topic,
 		PartitionID: partitionID,
 	}, NewPartition(partitionID, topic, isReplica))
+	n.partitionID2Topic.Store(partitionID, topic)
 }
 
 func (n *Node) Produce(topic string, partitionID int, msgs []*message.Message) error {
@@ -49,10 +50,19 @@ func (n *Node) DeleteTopicPartition(topic string, partitionID int) {
 		Topic:       topic,
 		PartitionID: partitionID,
 	})
+	n.partitionID2Topic.Delete(partitionID)
 }
 
 func (n *Node) ExistTopic(topic string) bool {
-
+	exist := false
+	n.partitionID2Topic.Range(func(id, topicI interface{}) bool {
+		if topicI.(string) == topic {
+			exist = true
+			return false
+		}
+		return true
+	})
+	return exist
 }
 
 func (n *Node) ExistTopicPartition(topic string, partitionID int) bool {
