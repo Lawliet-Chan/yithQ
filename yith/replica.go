@@ -43,7 +43,7 @@ func (s *Serve) receiveReplicaFromOtherNodes(w http.ResponseWriter, req *http.Re
 		return
 	}
 
-	if !s.node.ExistTopicPartition(msgs.Topic, msgs.PartitionID) {
+	if !s.node.ExistTopic(msgs.Topic) {
 		//从zero拉取最新metadata
 		metadata, err := s.watcher.FetchMetadata()
 		if err != nil {
@@ -57,7 +57,7 @@ func (s *Serve) receiveReplicaFromOtherNodes(w http.ResponseWriter, req *http.Re
 		s.node.AddTopicPartition(msgs.Topic, partitionID, true)
 	}
 
-	err = s.node.Produce(msgs.Topic, msgs.PartitionID, msgs.Msgs)
+	err = s.node.ProduceTopic(msgs.Topic, msgs.Msgs)
 	if err != nil {
 		Lg.Errorf("yith_broker(%s) replicate msgs to topic(%s) error : %v", req.RemoteAddr, msgs.Topic, err)
 		w.WriteHeader(http.StatusInternalServerError)

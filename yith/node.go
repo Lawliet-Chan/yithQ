@@ -8,7 +8,7 @@ import (
 type Node struct {
 	IP                string
 	topicPartition    *sync.Map //map[TopicPartitionInfo]*Partition
-	partitionID2Topic *sync.Map
+	partitionID2Topic *sync.Map //map[int]string
 }
 
 type TopicPartitionInfo struct {
@@ -32,7 +32,18 @@ func (n *Node) AddTopicPartition(topic string, partitionID int, isReplica bool) 
 	n.partitionID2Topic.Store(partitionID, topic)
 }
 
-func (n *Node) Produce(topic string, partitionID int, msgs []*message.Message) error {
+func (n *Node) ProduceTopic(topic string, msgs []*message.Message) (err error) {
+	n.partitionID2Topic.Range(func(id, topicI interface{}) bool {
+		if topicI.(string) == topic {
+			err = n.ProduceTopicPartition(topic, id.(int), msgs)
+			return false
+		}
+		return true
+	})
+	return
+}
+
+func (n *Node) ProduceTopicPartition(topic string, partitionID int, msgs []*message.Message) error {
 	partition, _ := n.topicPartition.Load(TopicPartitionInfo{
 		Topic:       topic,
 		PartitionID: partitionID,

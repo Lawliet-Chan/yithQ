@@ -109,7 +109,7 @@ func (s *Serve) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request
 	if s.cfg.ReplicaFactory != 0 {
 		go s.replicateToOtherNodes(msgs.Topic, data, replicaErrCh, wg)
 	}
-	err = s.node.Produce(msgs.Topic, msgs.PartitionID, msgs.Msgs)
+	err = s.node.ProduceTopicPartition(msgs.Topic, msgs.PartitionID, msgs.Msgs)
 	if err != nil {
 		Lg.Errorf("producer(%s) produce msgs to topic(%s) error : %v", req.RemoteAddr, msgs.Topic, err)
 		w.WriteHeader(http.StatusInternalServerError)
