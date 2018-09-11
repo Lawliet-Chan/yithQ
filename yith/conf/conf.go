@@ -26,6 +26,7 @@ type DiskQueueConf struct {
 }
 
 type MemoryQueueConf struct {
+	RingBufferCapacity int64
 }
 
 func InitConfig() *Config {
