@@ -1,6 +1,7 @@
 package yith
 
 import (
+	"net/http"
 	"sync"
 	"yithQ/message"
 )
@@ -51,9 +52,9 @@ func (n *Node) ProduceTopicPartition(topic string, partitionID int, msgs []*mess
 	return partition.(*Partition).Produce(msgs)
 }
 
-func (n *Node) Consume(topic string, popOffset int64) ([]*message.Message, error) {
+func (n *Node) Consume(topic string, popOffset int64, writer http.ResponseWriter) error {
 	partition, _ := n.topicPartition.Load(topic)
-	return partition.(*Partition).Consume(popOffset)
+	return partition.(*Partition).Consume(popOffset, writer)
 }
 
 func (n *Node) DeleteTopicPartition(topic string, partitionID int) {

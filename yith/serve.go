@@ -138,22 +138,22 @@ func (s *Serve) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte(string(err.Error())))
 		return
 	}
-	msgs, err := s.node.Consume(topic, offset)
+	err = s.node.Consume(topic, offset, w)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(string(err.Error())))
 		return
 	}
+	/*
+		data, err := json.Marshal(msgs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(string(err.Error())))
+			return
+		}
 
-	data, err := json.Marshal(msgs)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(string(err.Error())))
-		return
-	}
-
-	w.Write(data)
-
+		w.Write(data)
+	*/
 }
 
 func (s *Serve) checkeMetadataVersion(metaVersion uint32) bool {

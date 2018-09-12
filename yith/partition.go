@@ -1,6 +1,7 @@
 package yith
 
 import (
+	"net/http"
 	"yithQ/message"
 	"yithQ/yith/queue"
 )
@@ -28,6 +29,6 @@ func (p *Partition) Produce(msgs []*message.Message) error {
 	return p.q.Fill(msgs)
 }
 
-func (p *Partition) Consume(popOffset int64) ([]*message.Message, error) {
-	return p.q.Pop(popOffset)
+func (p *Partition) Consume(popOffset int64, writer http.ResponseWriter) error {
+	return p.q.Pop(popOffset, writer)
 }

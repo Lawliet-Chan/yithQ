@@ -1,6 +1,9 @@
 package queue
 
-import "yithQ/message"
+import (
+	"net/http"
+	"yithQ/message"
+)
 
 type Queue struct {
 	mq MemoryQueue
@@ -22,6 +25,7 @@ func (q *Queue) Fill(msgs []*message.Message) error {
 	return q.dq.FillToDisk(msgs)
 }
 
-func (q *Queue) Pop(popOffset int64) ([]*message.Message, error) {
+func (q *Queue) Pop(popOffset int64, writer http.ResponseWriter) error {
+	q.mq.PopFromMemory(writer)
 
 }
