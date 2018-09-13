@@ -1,7 +1,7 @@
 package queue
 
 import (
-	"github.com/smartystreets/go-disruptor"
+	"github.com/CrocdileChan/go-disruptor"
 	"yithQ/message"
 	"yithQ/yith/conf"
 
@@ -24,7 +24,6 @@ type MemoryQueue interface {
 type memoryQueue struct {
 	disruptor     disruptor.Disruptor
 	msgRingBuffer []*message.Message
-	writer        http.ResponseWriter
 }
 
 func NewMemoryQueue(cfg *conf.MemoryQueueConf) (MemoryQueue, error) {
@@ -51,12 +50,11 @@ func (mq *memoryQueue) FillToMemory(msgs []*message.Message) error {
 }
 
 func (mq *memoryQueue) PopFromMemory(writer http.ResponseWriter) error {
-	mq.writer = writer
-	mq.disruptor.Start()
+	mq.disruptor.Start(writer)
 	return nil
 }
 
-func (mq *memoryQueue) Consume(lower, upper int64) {
+func (mq *memoryQueue) Consume(writer http.ResponseWriter, lower, upper int64) {
 	msgs := make([]*message.Message, 0)
 	for seq := lower; seq <= upper; seq++ {
 		msg := mq.msgRingBuffer[lower&RingBufferMask]
@@ -64,8 +62,8 @@ func (mq *memoryQueue) Consume(lower, upper int64) {
 	}
 	data, err := json.Marshal(msgs)
 	if err != nil {
-		mq.writer.WriteHeader(http.StatusInternalServerError)
-		mq.writer.Write([]byte(err.Error()))
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte(err.Error()))
 	}
-	mq.writer.Write(data)
+	writer.Write(data)
 }
