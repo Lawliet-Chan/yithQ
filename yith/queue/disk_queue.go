@@ -5,7 +5,9 @@ import (
 	"github.com/boltdb/bolt"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
+	"syscall"
 	"yithQ/message"
 	"yithQ/yith/conf"
 )
@@ -91,20 +93,40 @@ func (dq *diskQueue) getLastOffsetFromDB() int64 {
 const DiskFileSizeLimit = 1024 * 1024 * 1024
 
 type DiskFile struct {
-	size int64
-	file *os.File
-	seq  int
+	startOffset int64
+	endOffset   int64
+	indexFile   *os.File
+	dataFile    *os.File
+	size        int64
+	seq         int
 }
 
 func newDiskFile(name string, seq int) (*DiskFile, error) {
-	f, err := os.Open(name + "_" + strconv.Itoa(seq))
+	dataf, err := os.Open(name + "_" + strconv.Itoa(seq) + ".data")
 	if err != nil {
 		return nil, err
 	}
+	indexf, err := os.Open(name + "_" + strconv.Itoa(seq) + ".index")
+	if err != nil {
+		return nil, err
+	}
+	var startOffset, endOffset int64
+	fi, _ := indexf.Stat()
+	if fi.Size() > 39 {
+		dataRef, err := syscall.Mmap(int(indexf.Fd()), 0, int(fi.Size()), syscall.PROT_READ, syscall.MAP_SHARED)
+		if err != nil {
+			return nil, err
+		}
+		startOffset, _ = decodeIndex(dataRef[:39])
+		endOffset, _ = decodeIndex(dataRef[len(dataRef)-39:])
+	}
 	return &DiskFile{
-		size: 0,
-		file: f,
-		seq:  seq,
+		startOffset: startOffset,
+		endOffset:   endOffset,
+		size:        0,
+		indexFile:   indexf,
+		dataFile:    dataf,
+		seq:         seq,
 	}, nil
 }
 
@@ -113,17 +135,35 @@ func (df *DiskFile) outOfLimit(data []byte) bool {
 }
 
 //TODO: will use mmap() to store data into file next version.
-func (df *DiskFile) write(data []byte) error {
-	si, err := df.file.Write(data)
+func (df *DiskFile) write(msgOffset int64, data []byte) error {
+
+	si, err := df.dataFile.Write(data)
 	if err != nil {
 		return err
 	}
 	df.size += int64(si)
-	return nil
+	_, err = df.indexFile.Write(encodeIndex(msgOffset, df.size))
+	return err
 }
 
 func (df *DiskFile) read(offset, length int64) ([]byte, error) {
 	data := make([]byte, length)
-	_, err := df.file.ReadAt(data, offset)
+	_, err := df.dataFile.ReadAt(data, offset)
 	return data, err
+}
+
+func encodeIndex(msgOffset, dataOffset int64) []byte {
+	unitIndexBytes := make([]byte, 39)
+	copy(unitIndexBytes, []byte(strconv.FormatInt(msgOffset, 10)+","+strconv.FormatInt(dataOffset, 10)))
+	return unitIndexBytes
+}
+
+func decodeIndex(indexBytes []byte) (msgOffset int64, dataPosition int64) {
+	indexStr := string(indexBytes)
+	offsets := strings.Split(strings.TrimSpace(indexStr), ",")
+	msgOffsetStr := offsets[0]
+	dataOffsetStr := offsets[1]
+	msgOffset, _ = strconv.ParseInt(msgOffsetStr, 10, 64)
+	dataPosition, _ = strconv.ParseInt(dataOffsetStr, 10, 64)
+	return
 }
