@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"yithQ/message"
 	"yithQ/yith/conf"
@@ -65,18 +66,10 @@ func (dq *diskQueue) PopFromDisk(popOffset int64) ([]*message.Message, error) {
 
 }
 
-const QueueMetaBucket = "queue_meta"
-
-func (dq *diskQueue) putIndexToDB() error {
-
-}
-
-func (dq *diskQueue) getIndexFromDB() {
-
-}
+//const QueueMetaBucket = "queue_meta"
 
 func (dq *diskQueue) getLastOffsetFromDB() int64 {
-	var lastOffset int64 = 0
+	/*var lastOffset int64 = 0
 	dq.db.View(func(tx *bolt.Tx) error {
 		c := tx.Bucket([]byte(QueueMetaBucket)).Cursor()
 		k, _ := c.Last()
@@ -87,10 +80,11 @@ func (dq *diskQueue) getLastOffsetFromDB() int64 {
 		lastOffset = int64(intOffset)
 		return nil
 	})
-	return lastOffset
+	return lastOffset*/
 }
 
 const DiskFileSizeLimit = 1024 * 1024 * 1024
+const EachIndexLen = 39
 
 type DiskFile struct {
 	startOffset int64
@@ -98,7 +92,8 @@ type DiskFile struct {
 	indexFile   *os.File
 	dataFile    *os.File
 	size        int64
-	seq         int
+	//Diskfile的编号，diskfile命名规则：topicPartition+seq
+	seq int
 }
 
 func newDiskFile(name string, seq int) (*DiskFile, error) {
@@ -112,13 +107,13 @@ func newDiskFile(name string, seq int) (*DiskFile, error) {
 	}
 	var startOffset, endOffset int64
 	fi, _ := indexf.Stat()
-	if fi.Size() > 39 {
+	if fi.Size() >= EachIndexLen {
 		dataRef, err := syscall.Mmap(int(indexf.Fd()), 0, int(fi.Size()), syscall.PROT_READ, syscall.MAP_SHARED)
 		if err != nil {
 			return nil, err
 		}
-		startOffset, _ = decodeIndex(dataRef[:39])
-		endOffset, _ = decodeIndex(dataRef[len(dataRef)-39:])
+		startOffset, _ = decodeIndex(dataRef[:EachIndexLen])
+		endOffset, _ = decodeIndex(dataRef[len(dataRef)-EachIndexLen:])
 	}
 	return &DiskFile{
 		startOffset: startOffset,
@@ -141,19 +136,48 @@ func (df *DiskFile) write(msgOffset int64, data []byte) error {
 	if err != nil {
 		return err
 	}
+	if df.size == 0 {
+		atomic.StoreInt64(&df.startOffset, msgOffset)
+	}
 	df.size += int64(si)
 	_, err = df.indexFile.Write(encodeIndex(msgOffset, df.size))
-	return err
+	if err != nil {
+		return err
+	}
+	atomic.StoreInt64(&df.endOffset, msgOffset)
+	return nil
 }
 
-func (df *DiskFile) read(offset, length int64) ([]byte, error) {
-	data := make([]byte, length)
-	_, err := df.dataFile.ReadAt(data, offset)
-	return data, err
+func (df *DiskFile) read(msgOffset int64) ([]byte, error) {
+	startIndexPosition := (msgOffset-df.startOffset)*EachIndexLen + 1
+	endIndexPosition := (msgOffset-df.startOffset+256)*EachIndexLen + 1
+	startIndex := make([]byte, EachIndexLen)
+	endIndex := make([]byte, EachIndexLen)
+	_, err := df.indexFile.ReadAt(startIndex, startIndexPosition)
+	if err != nil {
+		return nil, err
+	}
+	_, err = df.indexFile.ReadAt(endIndex, endIndexPosition)
+	if err != nil {
+		return nil, err
+	}
+
+	_, startOffset := decodeIndex(startIndex)
+	_, endOffset := decodeIndex(endIndex)
+
+	return syscall.Mmap(int(df.dataFile.Fd()), startOffset, int(endOffset-startOffset), syscall.PROT_READ, syscall.MAP_SHARED)
+}
+
+func (df *DiskFile) getStartOffset() int64 {
+	return atomic.LoadInt64(&df.startOffset)
+}
+
+func (df *DiskFile) getEndOffset() int64 {
+	return atomic.LoadInt64(&df.endOffset)
 }
 
 func encodeIndex(msgOffset, dataOffset int64) []byte {
-	unitIndexBytes := make([]byte, 39)
+	unitIndexBytes := make([]byte, EachIndexLen)
 	copy(unitIndexBytes, []byte(strconv.FormatInt(msgOffset, 10)+","+strconv.FormatInt(dataOffset, 10)))
 	return unitIndexBytes
 }
@@ -162,8 +186,8 @@ func decodeIndex(indexBytes []byte) (msgOffset int64, dataPosition int64) {
 	indexStr := string(indexBytes)
 	offsets := strings.Split(strings.TrimSpace(indexStr), ",")
 	msgOffsetStr := offsets[0]
-	dataOffsetStr := offsets[1]
+	dataPositionStr := offsets[1]
 	msgOffset, _ = strconv.ParseInt(msgOffsetStr, 10, 64)
-	dataPosition, _ = strconv.ParseInt(dataOffsetStr, 10, 64)
+	dataPosition, _ = strconv.ParseInt(dataPositionStr, 10, 64)
 	return
 }
