@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	"io"
+	"io/ioutil"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"syscall"
 	"yithQ/message"
@@ -19,8 +20,6 @@ type DiskQueue interface {
 }
 
 type diskQueue struct {
-	sync.Mutex
-	//db             *bolt.DB
 	fileNamePrefix string
 	writingFile    *DiskFile
 	readingFile    *DiskFile
@@ -29,20 +28,42 @@ type diskQueue struct {
 }
 
 func NewDiskQueue(topicPartitionInfo string) (DiskQueue, error) {
-	/*db, err := bolt.Open("./"+topicPartitionInfo, 0600, nil)
-	if err != nil {
-		return nil, err
-	}*/
-
-	writingFile, err := newDiskFile(topicPartitionInfo, 0)
+	fis, err := ioutil.ReadDir("./")
 	if err != nil {
 		return nil, err
 	}
+	seqArr := make([]int, 0)
+	for _, fi := range fis {
+		if fi.IsDir() {
+			continue
+		}
+		if strings.Contains(fi.Name(), topicPartitionInfo) && strings.Contains(fi.Name(), ".data") {
+			fileNameArr := strings.Split(strings.TrimSuffix(fi.Name(), ".data"), "_")
+			seq, err := strconv.Atoi(fileNameArr[len(fileNameArr)-1])
+			if err != nil {
+				return nil, err
+			}
+			seqArr = append(seqArr, seq)
+		}
+	}
+	sort.Ints(seqArr)
+	storeFiles := make([]*DiskFile, 0)
+	for _, seqNum := range seqArr {
+		diskFile, err := newDiskFile(topicPartitionInfo, seqNum, 0, true) //!!! 0 is wrong,to be considered
+		if err != nil {
+			return nil, err
+		}
+		storeFiles = append(storeFiles, diskFile)
+	}
+	writingFile, err := newDiskFile(topicPartitionInfo, seqArr[len(seqArr)-1]+1, 0, false)
+	if err != nil {
+		return nil, err
+	}
+	storeFiles = append(storeFiles, writingFile)
 	return &diskQueue{
-		//db:             db,
 		fileNamePrefix: topicPartitionInfo,
 		writingFile:    writingFile,
-		storeFiles:     atomic.Value{make([]*DiskFile, 0)},
+		storeFiles:     atomic.Value{storeFiles},
 	}, nil
 }
 
@@ -58,7 +79,7 @@ func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
 	}
 	if overflowIndex >= 0 {
 		newSeq := dq.writingFile.seq + 1
-		dq.writingFile, err = newDiskFile(dq.fileNamePrefix, newSeq)
+		dq.writingFile, err = newDiskFile(dq.fileNamePrefix, newSeq, 0, false)
 		if err != nil {
 			return err
 		}
@@ -112,7 +133,7 @@ type DiskFile struct {
 	isFull bool
 }
 
-func newDiskFile(name string, seq int) (*DiskFile, error) {
+func newDiskFile(name string, seq int, dataFileFillSize int64, isFull bool) (*DiskFile, error) {
 	dataf, err := os.Open(name + "_" + strconv.Itoa(seq) + ".data")
 	if err != nil {
 		return nil, err
@@ -134,14 +155,27 @@ func newDiskFile(name string, seq int) (*DiskFile, error) {
 	return &DiskFile{
 		startOffset: startOffset,
 		endOffset:   endOffset,
-		size:        0,
+		size:        dataFileFillSize,
 		indexFile:   indexf,
 		dataFile:    dataf,
 		seq:         seq,
-		isFull:      false,
+		isFull:      isFull,
 	}, nil
 }
 
+/*
+func recoverDiskFile(dataFileName string) (*DiskFile, error) {
+	dataf,err:=os.Open(dataFileName)
+	if err != nil {
+		return nil, err
+	}
+	indexf,err:=os.Open(strings.TrimSuffix(dataFileName,".data")+".index")
+	if err != nil {
+		return nil,err
+	}
+
+}
+*/
 //TODO: will use mmap() to store data into file next version.
 //write batch
 //batchStartOffset=lastOffset+1
