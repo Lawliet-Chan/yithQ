@@ -2,6 +2,7 @@ package queue
 
 import (
 	"encoding/json"
+	"github.com/pkg/errors"
 	"io"
 	"os"
 	"strconv"
@@ -51,21 +52,21 @@ func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
 		dq.writingFile = storeFiles[len(storeFiles)-1]
 	}
 
-	byt, err := json.Marshal(msgs)
+	overflowIndex, err := dq.writingFile.write(dq.lastOffset+1, msgs)
 	if err != nil {
 		return err
 	}
-	if dq.writingFile.outOfLimit(byt) {
-		dq.Lock()
-		dq.storeFiles = append(dq.storeFiles, dq.writingFile)
-		dq.Unlock()
+	if overflowIndex >= 0 {
 		newSeq := dq.writingFile.seq + 1
 		dq.writingFile, err = newDiskFile(dq.fileNamePrefix, newSeq)
 		if err != nil {
 			return err
 		}
+		storeFiles := dq.storeFiles.Load().([]*DiskFile)
+		dq.storeFiles.Store(append(storeFiles, dq.writingFile))
+		return dq.FillToDisk(msgs[overflowIndex:])
 	}
-	return dq.writingFile.write(byt)
+	return nil
 }
 
 func (dq *diskQueue) PopFromDisk(msgOffset int64) ([]*message.Message, error) {
@@ -98,6 +99,8 @@ func findReadingFileByOffset(files []*DiskFile, msgOffset int64) *DiskFile {
 const DiskFileSizeLimit = 1024 * 1024 * 1024
 const EachIndexLen = 39
 
+var ErrMsgTooLarge error = errors.New("message too large")
+
 type DiskFile struct {
 	startOffset int64
 	endOffset   int64
@@ -105,7 +108,8 @@ type DiskFile struct {
 	dataFile    *os.File
 	size        int64
 	//Diskfile的编号，diskfile命名规则：topicPartition+seq
-	seq int
+	seq    int
+	isFull bool
 }
 
 func newDiskFile(name string, seq int) (*DiskFile, error) {
@@ -134,43 +138,50 @@ func newDiskFile(name string, seq int) (*DiskFile, error) {
 		indexFile:   indexf,
 		dataFile:    dataf,
 		seq:         seq,
+		isFull:      false,
 	}, nil
-}
-
-func (df *DiskFile) outOfLimit(data []byte) bool {
-	return int64(len(data))+df.size > DiskFileSizeLimit
 }
 
 //TODO: will use mmap() to store data into file next version.
 //write batch
 //batchStartOffset=lastOffset+1
-func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) error {
+func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int, error) {
 
 	dataFileSize := atomic.LoadInt64(&df.size)
 
 	dataRef, err := syscall.Mmap(int(df.dataFile.Fd()), dataFileSize+1, int(DiskFileSizeLimit-dataFileSize), syscall.PROT_WRITE, syscall.MAP_SHARED)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	var cursor int64 = 0
 	for i, msg := range msgs {
 		byt, err := json.Marshal(msg)
 		if err != nil {
-			return err
+			return -1, err
 		}
+
+		if len(byt) > DiskFileSizeLimit {
+			return -1, ErrMsgTooLarge
+		}
+
+		if len(dataRef[cursor:]) < len(byt) {
+			df.isFull = true
+			return i, nil
+		}
+
 		copy(dataRef[cursor:], byt)
 		cursor += int64(len(byt))
 
 		_, err = df.indexFile.Write(encodeIndex(batchStartOffset+int64(i), dataFileSize+cursor))
 		if err != nil {
-			return err
+			return -1, err
 		}
 	}
 
 	err = syscall.Munmap(dataRef)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	if dataFileSize == 0 {
@@ -179,7 +190,7 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) error
 	atomic.StoreInt64(&df.size, dataFileSize+cursor)
 
 	atomic.StoreInt64(&df.endOffset, batchStartOffset+int64(len(msgs))-1)
-	return nil
+	return -1, nil
 }
 
 func (df *DiskFile) read(msgOffset int64, batchCount int) ([]byte, error) {
