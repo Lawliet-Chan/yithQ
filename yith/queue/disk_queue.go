@@ -2,7 +2,7 @@ package queue
 
 import (
 	"encoding/json"
-	"github.com/boltdb/bolt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"syscall"
 	"yithQ/message"
-	"yithQ/yith/conf"
 )
 
 type DiskQueue interface {
@@ -20,38 +19,45 @@ type DiskQueue interface {
 
 type diskQueue struct {
 	sync.Mutex
-	db             *bolt.DB
+	//db             *bolt.DB
 	fileNamePrefix string
 	writingFile    *DiskFile
-	dataFiles      []*DiskFile
+	readingFile    *DiskFile
+	storeFiles     atomic.Value //type is  []*DiskFile
 	lastOffset     int64
 }
 
-func NewDiskQueue(topicPartitionInfo string, conf *conf.DiskQueueConf) (DiskQueue, error) {
-	db, err := bolt.Open("./"+topicPartitionInfo, 0600, nil)
+func NewDiskQueue(topicPartitionInfo string) (DiskQueue, error) {
+	/*db, err := bolt.Open("./"+topicPartitionInfo, 0600, nil)
 	if err != nil {
 		return nil, err
-	}
+	}*/
+
 	writingFile, err := newDiskFile(topicPartitionInfo, 0)
 	if err != nil {
 		return nil, err
 	}
 	return &diskQueue{
-		db:             db,
+		//db:             db,
 		fileNamePrefix: topicPartitionInfo,
 		writingFile:    writingFile,
-		dataFiles:      make([]*DiskFile, 0),
+		storeFiles:     atomic.Value{make([]*DiskFile, 0)},
 	}, nil
 }
 
 func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
+	if dq.writingFile == nil {
+		storeFiles := dq.storeFiles.Load().([]*DiskFile)
+		dq.writingFile = storeFiles[len(storeFiles)-1]
+	}
+
 	byt, err := json.Marshal(msgs)
 	if err != nil {
 		return err
 	}
 	if dq.writingFile.outOfLimit(byt) {
 		dq.Lock()
-		dq.dataFiles = append(dq.dataFiles, dq.writingFile)
+		dq.storeFiles = append(dq.storeFiles, dq.writingFile)
 		dq.Unlock()
 		newSeq := dq.writingFile.seq + 1
 		dq.writingFile, err = newDiskFile(dq.fileNamePrefix, newSeq)
@@ -62,25 +68,31 @@ func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
 	return dq.writingFile.write(byt)
 }
 
-func (dq *diskQueue) PopFromDisk(popOffset int64) ([]*message.Message, error) {
-
+func (dq *diskQueue) PopFromDisk(msgOffset int64) ([]*message.Message, error) {
+	if dq.readingFile == nil {
+		dq.readingFile = findReadingFileByOffset(dq.storeFiles.Load().([]*DiskFile), msgOffset)
+	}
+	data, err := dq.readingFile.read(msgOffset, 1)
+	if err != nil {
+		if err == io.EOF && msgOffset <= atomic.LoadInt64(&dq.lastOffset) {
+			dq.readingFile = nil
+			return dq.PopFromDisk(msgOffset)
+		}
+		return nil, err
+	}
+	var msgs []*message.Message
+	err = json.Unmarshal(data, &msgs)
+	return msgs, err
 }
 
-//const QueueMetaBucket = "queue_meta"
-
-func (dq *diskQueue) getLastOffsetFromDB() int64 {
-	/*var lastOffset int64 = 0
-	dq.db.View(func(tx *bolt.Tx) error {
-		c := tx.Bucket([]byte(QueueMetaBucket)).Cursor()
-		k, _ := c.Last()
-		intOffset, err := strconv.Atoi(string(k))
-		if err != nil {
-			return err
-		}
-		lastOffset = int64(intOffset)
-		return nil
-	})
-	return lastOffset*/
+func findReadingFileByOffset(files []*DiskFile, msgOffset int64) *DiskFile {
+	midStoreFile := files[len(files)/2]
+	if midStoreFile.startOffset <= msgOffset && midStoreFile.endOffset >= msgOffset {
+		return midStoreFile
+	} else if midStoreFile.startOffset > msgOffset {
+		return findReadingFileByOffset(files[:len(files)/2], msgOffset)
+	}
+	return findReadingFileByOffset(files[len(files)/2:], msgOffset)
 }
 
 const DiskFileSizeLimit = 1024 * 1024 * 1024
@@ -130,27 +142,49 @@ func (df *DiskFile) outOfLimit(data []byte) bool {
 }
 
 //TODO: will use mmap() to store data into file next version.
-func (df *DiskFile) write(msgOffset int64, data []byte) error {
+//write batch
+//batchStartOffset=lastOffset+1
+func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) error {
 
-	si, err := df.dataFile.Write(data)
+	dataFileSize := atomic.LoadInt64(&df.size)
+
+	dataRef, err := syscall.Mmap(int(df.dataFile.Fd()), dataFileSize+1, int(DiskFileSizeLimit-dataFileSize), syscall.PROT_WRITE, syscall.MAP_SHARED)
 	if err != nil {
 		return err
 	}
-	if df.size == 0 {
-		atomic.StoreInt64(&df.startOffset, msgOffset)
+
+	var cursor int64 = 0
+	for i, msg := range msgs {
+		byt, err := json.Marshal(msg)
+		if err != nil {
+			return err
+		}
+		copy(dataRef[cursor:], byt)
+		cursor += int64(len(byt))
+
+		_, err = df.indexFile.Write(encodeIndex(batchStartOffset+int64(i), dataFileSize+cursor))
+		if err != nil {
+			return err
+		}
 	}
-	df.size += int64(si)
-	_, err = df.indexFile.Write(encodeIndex(msgOffset, df.size))
+
+	err = syscall.Munmap(dataRef)
 	if err != nil {
 		return err
 	}
-	atomic.StoreInt64(&df.endOffset, msgOffset)
+
+	if dataFileSize == 0 {
+		atomic.StoreInt64(&df.startOffset, batchStartOffset)
+	}
+	atomic.StoreInt64(&df.size, dataFileSize+cursor)
+
+	atomic.StoreInt64(&df.endOffset, batchStartOffset+int64(len(msgs))-1)
 	return nil
 }
 
-func (df *DiskFile) read(msgOffset int64) ([]byte, error) {
-	startIndexPosition := (msgOffset-df.startOffset)*EachIndexLen + 1
-	endIndexPosition := (msgOffset-df.startOffset+256)*EachIndexLen + 1
+func (df *DiskFile) read(msgOffset int64, batchCount int) ([]byte, error) {
+	startIndexPosition := (msgOffset-df.getStartOffset())*EachIndexLen + 1
+	endIndexPosition := (msgOffset-df.getStartOffset()+int64(batchCount))*EachIndexLen + 1
 	startIndex := make([]byte, EachIndexLen)
 	endIndex := make([]byte, EachIndexLen)
 	_, err := df.indexFile.ReadAt(startIndex, startIndexPosition)
