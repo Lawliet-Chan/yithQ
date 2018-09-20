@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/pkg/errors"
 	"io"
@@ -49,13 +50,14 @@ func NewDiskQueue(topicPartitionInfo string) (DiskQueue, error) {
 	sort.Ints(seqArr)
 	storeFiles := make([]*DiskFile, 0)
 	for _, seqNum := range seqArr {
-		diskFile, err := newDiskFile(topicPartitionInfo, seqNum, 0, true) //!!! 0 is wrong,to be considered
+		diskFile, err := newDiskFile(topicPartitionInfo, seqNum, true)
 		if err != nil {
 			return nil, err
 		}
 		storeFiles = append(storeFiles, diskFile)
 	}
-	writingFile, err := newDiskFile(topicPartitionInfo, seqArr[len(seqArr)-1]+1, 0, false)
+	lastOffset := storeFiles[len(storeFiles)-1].endOffset
+	writingFile, err := newDiskFile(topicPartitionInfo, seqArr[len(seqArr)-1]+1, false)
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +66,7 @@ func NewDiskQueue(topicPartitionInfo string) (DiskQueue, error) {
 		fileNamePrefix: topicPartitionInfo,
 		writingFile:    writingFile,
 		storeFiles:     atomic.Value{storeFiles},
+		lastOffset:     lastOffset,
 	}, nil
 }
 
@@ -79,7 +82,7 @@ func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
 	}
 	if overflowIndex >= 0 {
 		newSeq := dq.writingFile.seq + 1
-		dq.writingFile, err = newDiskFile(dq.fileNamePrefix, newSeq, 0, false)
+		dq.writingFile, err = newDiskFile(dq.fileNamePrefix, newSeq, false)
 		if err != nil {
 			return err
 		}
@@ -133,12 +136,28 @@ type DiskFile struct {
 	isFull bool
 }
 
-func newDiskFile(name string, seq int, dataFileFillSize int64, isFull bool) (*DiskFile, error) {
-	dataf, err := os.Open(name + "_" + strconv.Itoa(seq) + ".data")
+func newDiskFile(name string, seq int, isFull bool) (*DiskFile, error) {
+	dataf, err := os.OpenFile(name+"_"+strconv.Itoa(seq)+".data", os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
-	indexf, err := os.Open(name + "_" + strconv.Itoa(seq) + ".index")
+	indexf, err := os.OpenFile(name+"_"+strconv.Itoa(seq)+".index", os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	dataFi, err := dataf.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if dataFi.Size() < DiskFileSizeLimit {
+		_, err = dataf.WriteAt([]byte(" "), DiskFileSizeLimit-1)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	dataFileSize, err := dataFileSize(dataf)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +174,7 @@ func newDiskFile(name string, seq int, dataFileFillSize int64, isFull bool) (*Di
 	return &DiskFile{
 		startOffset: startOffset,
 		endOffset:   endOffset,
-		size:        dataFileFillSize,
+		size:        dataFileSize,
 		indexFile:   indexf,
 		dataFile:    dataf,
 		seq:         seq,
@@ -183,7 +202,7 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 
 	dataFileSize := atomic.LoadInt64(&df.size)
 
-	dataRef, err := syscall.Mmap(int(df.dataFile.Fd()), dataFileSize+1, int(DiskFileSizeLimit-dataFileSize), syscall.PROT_WRITE, syscall.MAP_SHARED)
+	dataRef, err := syscall.Mmap(int(df.dataFile.Fd()), dataFileSize, int(DiskFileSizeLimit-dataFileSize), syscall.PROT_WRITE, syscall.MAP_SHARED)
 	if err != nil {
 		return -1, err
 	}
@@ -228,8 +247,8 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 }
 
 func (df *DiskFile) read(msgOffset int64, batchCount int) ([]byte, error) {
-	startIndexPosition := (msgOffset-df.getStartOffset())*EachIndexLen + 1
-	endIndexPosition := (msgOffset-df.getStartOffset()+int64(batchCount))*EachIndexLen + 1
+	startIndexPosition := (msgOffset - df.getStartOffset()) * EachIndexLen
+	endIndexPosition := (msgOffset - df.getStartOffset() + int64(batchCount)) * EachIndexLen
 	startIndex := make([]byte, EachIndexLen)
 	endIndex := make([]byte, EachIndexLen)
 	_, err := df.indexFile.ReadAt(startIndex, startIndexPosition)
@@ -269,4 +288,13 @@ func decodeIndex(indexBytes []byte) (msgOffset int64, dataPosition int64) {
 	msgOffset, _ = strconv.ParseInt(msgOffsetStr, 10, 64)
 	dataPosition, _ = strconv.ParseInt(dataPositionStr, 10, 64)
 	return
+}
+
+func dataFileSize(f *os.File) (int64, error) {
+	data, err := syscall.Mmap(int(f.Fd()), 0, DiskFileSizeLimit, syscall.PROT_READ, syscall.MAP_SHARED)
+	if err != nil {
+		return 0, err
+	}
+	realData := bytes.TrimRight(data, " ")
+	return int64(len(realData)), nil
 }
