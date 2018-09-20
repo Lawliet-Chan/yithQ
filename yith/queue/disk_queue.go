@@ -17,7 +17,7 @@ import (
 
 type DiskQueue interface {
 	FillToDisk(msg []*message.Message) error
-	PopFromDisk(popOffset int64) ([]*message.Message, error)
+	PopFromDisk(popOffset int64) ([]byte, error)
 }
 
 type diskQueue struct {
@@ -96,7 +96,7 @@ func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
 	return nil
 }
 
-func (dq *diskQueue) PopFromDisk(msgOffset int64) ([]*message.Message, error) {
+func (dq *diskQueue) PopFromDisk(msgOffset int64) ([]byte, error) {
 	if dq.readingFile == nil {
 		dq.readingFile = findReadingFileByOffset(dq.storeFiles.Load().([]*DiskFile), msgOffset)
 	}
@@ -104,7 +104,7 @@ func (dq *diskQueue) PopFromDisk(msgOffset int64) ([]*message.Message, error) {
 		dq.readingFile = findReadingFileByOffset(dq.storeFiles.Load().([]*DiskFile), msgOffset)
 	}
 
-	data, err := dq.readingFile.read(msgOffset, 1)
+	data, err := dq.readingFile.read(msgOffset, 20)
 	if err != nil {
 		if err == io.EOF && msgOffset <= dq.getLastOffset() {
 			dq.readingFile = nil
@@ -112,9 +112,7 @@ func (dq *diskQueue) PopFromDisk(msgOffset int64) ([]*message.Message, error) {
 		}
 		return nil, err
 	}
-	var msgs []*message.Message
-	err = json.Unmarshal(data, &msgs)
-	return msgs, err
+	return data, nil
 }
 
 func (dq *diskQueue) getLastOffset() int64 {

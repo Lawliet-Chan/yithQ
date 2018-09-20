@@ -26,10 +26,14 @@ func (q *Queue) Fill(msgs []*message.Message) error {
 }
 
 func (q *Queue) Pop(popOffset int64, writer http.ResponseWriter) error {
-	q.mq.PopFromMemory(writer)
-	msgs, err := q.dq.PopFromDisk(popOffset)
-	if err != nil {
-
+	if popOffset == -1 {
+		q.mq.PopFromMemory(writer)
+		return nil
 	}
-
+	msgsData, err := q.dq.PopFromDisk(popOffset)
+	if err != nil {
+		return err
+	}
+	writer.Write(msgsData)
+	return nil
 }
