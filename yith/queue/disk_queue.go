@@ -76,7 +76,7 @@ func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
 		dq.writingFile = storeFiles[len(storeFiles)-1]
 	}
 
-	overflowIndex, err := dq.writingFile.write(dq.lastOffset+1, msgs)
+	overflowIndex, err := dq.writingFile.write(dq.getLastOffset()+1, msgs)
 	if err != nil {
 		return err
 	}
@@ -90,6 +90,9 @@ func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
 		dq.storeFiles.Store(append(storeFiles, dq.writingFile))
 		return dq.FillToDisk(msgs[overflowIndex:])
 	}
+
+	dq.UpLastOffset(int64(len(msgs)))
+
 	return nil
 }
 
@@ -103,7 +106,7 @@ func (dq *diskQueue) PopFromDisk(msgOffset int64) ([]*message.Message, error) {
 
 	data, err := dq.readingFile.read(msgOffset, 1)
 	if err != nil {
-		if err == io.EOF && msgOffset <= atomic.LoadInt64(&dq.lastOffset) {
+		if err == io.EOF && msgOffset <= dq.getLastOffset() {
 			dq.readingFile = nil
 			return dq.PopFromDisk(msgOffset)
 		}
@@ -112,6 +115,14 @@ func (dq *diskQueue) PopFromDisk(msgOffset int64) ([]*message.Message, error) {
 	var msgs []*message.Message
 	err = json.Unmarshal(data, &msgs)
 	return msgs, err
+}
+
+func (dq *diskQueue) getLastOffset() int64 {
+	return atomic.LoadInt64(&dq.lastOffset)
+}
+
+func (dq *diskQueue) UpLastOffset(delta int64) int64 {
+	return atomic.AddInt64(&dq.lastOffset, delta)
 }
 
 func findReadingFileByOffset(files []*DiskFile, msgOffset int64) *DiskFile {
@@ -224,7 +235,7 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 
 		if len(dataRef[cursor:]) < len(byt) {
 			df.isFull = true
-			return i, nil
+			return i, syscall.Munmap(dataRef)
 		}
 
 		copy(dataRef[cursor:], byt)
