@@ -97,6 +97,10 @@ func (dq *diskQueue) PopFromDisk(msgOffset int64) ([]*message.Message, error) {
 	if dq.readingFile == nil {
 		dq.readingFile = findReadingFileByOffset(dq.storeFiles.Load().([]*DiskFile), msgOffset)
 	}
+	if dq.readingFile.getStartOffset() <= msgOffset && dq.readingFile.getEndOffset() >= msgOffset {
+		dq.readingFile = findReadingFileByOffset(dq.storeFiles.Load().([]*DiskFile), msgOffset)
+	}
+
 	data, err := dq.readingFile.read(msgOffset, 1)
 	if err != nil {
 		if err == io.EOF && msgOffset <= atomic.LoadInt64(&dq.lastOffset) {
