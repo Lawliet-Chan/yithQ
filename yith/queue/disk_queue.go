@@ -252,7 +252,12 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 
 func (df *DiskFile) read(msgOffset int64, batchCount int) ([]byte, error) {
 	startIndexPosition := (msgOffset - df.getStartOffset()) * EachIndexLen
-	endIndexPosition := (msgOffset - df.getStartOffset() + int64(batchCount)) * EachIndexLen
+
+	var endIndexPosition int64
+	if msgOffset+int64(batchCount)-1 < df.getEndOffset() {
+		endIndexPosition = (msgOffset - df.getStartOffset() + int64(batchCount)) * EachIndexLen
+	}
+	endIndexPosition = (df.getEndOffset() - df.getStartOffset()) * EachIndexLen
 	startIndex := make([]byte, EachIndexLen)
 	endIndex := make([]byte, EachIndexLen)
 	_, err := df.indexFile.ReadAt(startIndex, startIndexPosition)

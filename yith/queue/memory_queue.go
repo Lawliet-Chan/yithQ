@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	RingBufferCapacity = 1024
-	RingBufferMask     = RingBufferCapacity - 1
-	Iterations         = 1000000 * 100
+	//RingBufferCapacity = 1024
+	//RingBufferMask     = RingBufferCapacity - 1
+	Iterations = 1000000 * 100
 	//ReserveMany        = 16
 )
 
@@ -22,15 +22,17 @@ type MemoryQueue interface {
 }
 
 type memoryQueue struct {
-	disruptor     disruptor.Disruptor
-	msgRingBuffer []*message.Message
+	ringBufferMask int64
+	disruptor      disruptor.Disruptor
+	msgRingBuffer  []*message.Message
 }
 
 func NewMemoryQueue(cfg *conf.MemoryQueueConf) (MemoryQueue, error) {
 	mq := &memoryQueue{
-		msgRingBuffer: make([]*message.Message, RingBufferCapacity),
+		msgRingBuffer: make([]*message.Message, cfg.RingBufferCapacity),
 	}
 	mq.disruptor = disruptor.Configure(cfg.RingBufferCapacity).WithConsumerGroup(mq).Build()
+	mq.ringBufferMask = cfg.RingBufferCapacity - 1
 	return mq, nil
 }
 
@@ -41,7 +43,7 @@ func (mq *memoryQueue) FillToMemory(msgs []*message.Message) error {
 	for seq <= Iterations {
 		seq = writer.Reserve(reserveMany)
 		for i := seq - reserveMany + 1; i <= seq; i++ {
-			mq.msgRingBuffer[i&RingBufferMask] = msgs[i]
+			mq.msgRingBuffer[i&mq.ringBufferMask] = msgs[i]
 		}
 		writer.Commit(seq-reserveMany+1, seq)
 	}
@@ -57,7 +59,7 @@ func (mq *memoryQueue) PopFromMemory(writer http.ResponseWriter) error {
 func (mq *memoryQueue) Consume(writer http.ResponseWriter, lower, upper int64) {
 	msgs := make([]*message.Message, 0)
 	for seq := lower; seq <= upper; seq++ {
-		msg := mq.msgRingBuffer[lower&RingBufferMask]
+		msg := mq.msgRingBuffer[lower&mq.ringBufferMask]
 		msgs = append(msgs, msg)
 	}
 	data, err := json.Marshal(msgs)
