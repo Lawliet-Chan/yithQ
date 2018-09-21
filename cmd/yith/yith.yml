@@ -6,7 +6,7 @@ consumer_port: :9971
 
 replica_factory:  3
 
-zero_address: localhost:9900
+zero_address:  http://127.0.0.1:9900
 
 watch_port: :9901
 
@@ -16,4 +16,4 @@ logger_level: info
 
 queue_conf:
   memory_queue_conf:
-    ring_buffer_capacity: 1024*10
+    ring_buffer_capacity: 10240

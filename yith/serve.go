@@ -27,9 +27,9 @@ func NewServe(cfg *conf.Config) *Serve {
 	if err != nil {
 		panic(err)
 	}
-	s:=&Serve{
+	s := &Serve{
 		cfg:      cfg,
-		//metadata: &atomic.Value{meta.NewMetadata()},
+		metadata: &atomic.Value{},
 		node:     NewNode(ip),
 		watcher:  NewWatcher(cfg.ZeroAddress, cfg.HeartbeatInterval, cfg.WatchPort),
 	}

@@ -65,8 +65,8 @@ func NewDiskQueue(topicPartitionInfo string) (DiskQueue, error) {
 	dq := &diskQueue{
 		fileNamePrefix: topicPartitionInfo,
 		writingFile:    writingFile,
-		//storeFiles:     atomic.Value{storeFiles},
-		lastOffset: lastOffset,
+		storeFiles:     atomic.Value{},
+		lastOffset:     lastOffset,
 	}
 	dq.storeFiles.Store(storeFiles)
 	return dq, nil
