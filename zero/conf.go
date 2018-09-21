@@ -11,6 +11,8 @@ type Config struct {
 	//ForFetchMetaPort string `yaml:"for_fetch_meta_port"`
 
 	HeartbeatTimeout string `yaml:"heartbeat_timeout"`
+
+	LoggerLevel string `yaml:"logger_level"`
 }
 
 func InitConfig() *Config {

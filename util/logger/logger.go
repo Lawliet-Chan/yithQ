@@ -37,7 +37,7 @@ type logger struct {
 func NewLogger(w io.Writer, level string) {
 	l := logrus.New()
 	l.Out = w
-	l.Formatter = &logrus.JSONFormatter{}
+	l.Formatter = &logrus.TextFormatter{}
 	lvl, err := logrus.ParseLevel(level)
 	if err != nil {
 		panic(err)

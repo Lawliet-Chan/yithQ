@@ -4,3 +4,5 @@ listen_port: :9900
 yith_watch_port: :9901
 
 heartbeat_timeout: 30s
+
+logger_level: info

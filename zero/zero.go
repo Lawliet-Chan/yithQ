@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"yithQ/meta"
+	"yithQ/util/logger"
 )
 
 type Zero struct {
@@ -31,6 +32,7 @@ func NewZero(cfg *Config) *Zero {
 }
 
 func (z *Zero) Run() {
+	logger.Lg.Info("zero start run ...")
 	go z.ListenYith()
 	go func() {
 		http.HandleFunc("/fetch_meta", z.ForFetchMetadata)
@@ -40,6 +42,8 @@ func (z *Zero) Run() {
 }
 
 func (z *Zero) ListenYith() {
+	logger.Lg.Infof("zero listen yith nodes by port %s ", z.cfg.ListenPort)
+	logger.Lg.Infof("nortify yith nodes by port %s", z.cfg.YithWatchPort)
 	z.center.ReceiveWithFunc(func(remoteAddr string, msg *yapool.Msg) {
 		switch msg.Level {
 		case meta.TopicAddChange:
@@ -103,6 +107,7 @@ func (z *Zero) DeleteTopic(yithNode string, topic meta.TopicMetadata) {
 }
 
 func (z *Zero) yithNodeExpire(yithAddr string) {
+	logger.Lg.Warnf("yith_node(%s) expired!", yithAddr)
 	z.weightQueue.DeleteNode(yithAddr)
 }
 

@@ -17,6 +17,8 @@ type Config struct {
 	ZeroAddress       string `yaml:"zero_address"`
 	WatchPort         string `yaml:"watch_port"`
 	HeartbeatInterval string `yaml:"heartbeat_interval"`
+
+	LoggerLevel string `yaml:"logger_level"`
 }
 
 type QueueConf struct {

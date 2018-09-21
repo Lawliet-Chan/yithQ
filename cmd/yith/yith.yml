@@ -12,6 +12,8 @@ watch_port: :9901
 
 heartbeat_interval: 10s
 
+logger_level: info
+
 queue_conf:
   memory_queue_conf:
     ring_buffer_capacity: 1024*10

@@ -27,15 +27,20 @@ func NewServe(cfg *conf.Config) *Serve {
 	if err != nil {
 		panic(err)
 	}
-	return &Serve{
+	s:=&Serve{
 		cfg:      cfg,
-		metadata: &atomic.Value{meta.NewMetadata()},
+		//metadata: &atomic.Value{meta.NewMetadata()},
 		node:     NewNode(ip),
 		watcher:  NewWatcher(cfg.ZeroAddress, cfg.HeartbeatInterval, cfg.WatchPort),
 	}
+
+	s.metadata.Store(meta.NewMetadata())
+
+	return s
 }
 
 func (s *Serve) Run() {
+	Lg.Info("yith node start run ...")
 	metadata, err := s.watcher.FetchMetadata()
 	if err != nil {
 		Lg.Fatalf("fetch metadata from zero(%s) error : %v", s.cfg.ZeroAddress, err)
@@ -54,6 +59,7 @@ func (s *Serve) Run() {
 
 	s.watcher.PushChangeToZero(meta.NodeChange, nil)
 	go func() {
+		Lg.Infof("send heartbeat to zero(%s)", s.cfg.ZeroAddress)
 		s.watcher.SendHeartbeatToZero()
 	}()
 
