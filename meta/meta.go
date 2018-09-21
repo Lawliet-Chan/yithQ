@@ -1,7 +1,8 @@
 package meta
 
 import (
-	"encoding/json"
+	"bytes"
+	"encoding/gob"
 	"sync"
 	"sync/atomic"
 )
@@ -11,9 +12,9 @@ type Metadata struct {
 	Version      uint32
 }
 
-type JsonMetadata struct {
-	TopicNodeMap map[TopicMetadata]string `json:"topic_node_map"`
-	Version      uint32                   `json:"version"`
+type GobMetadata struct {
+	TopicNodeMap map[TopicMetadata]string `gob:"topic_node_map"`
+	Version      uint32                   `gob:"version"`
 }
 
 func NewMetadata() *Metadata {
@@ -24,24 +25,26 @@ func NewMetadata() *Metadata {
 }
 
 func (m *Metadata) Unmarshal(data []byte) error {
-	var jmd *JsonMetadata
-	err := json.Unmarshal(data, jmd)
+	var gmd GobMetadata
+
+	err := gob.NewDecoder(bytes.NewBuffer(data)).Decode(&gmd)
 	if err != nil {
 		return err
 	}
-	m.Version = jmd.Version
-	for k, v := range jmd.TopicNodeMap {
+	m.Version = gmd.Version
+	for k, v := range gmd.TopicNodeMap {
 		m.TopicNodeMap.Store(k, v)
 	}
 	return nil
 }
 
 func (m *Metadata) Marshal(tnm map[TopicMetadata]string, version uint32) ([]byte, error) {
-
-	return json.Marshal(JsonMetadata{
+	var data bytes.Buffer
+	err := gob.NewEncoder(&data).Encode(GobMetadata{
 		TopicNodeMap: tnm,
 		Version:      version,
 	})
+	return data.Bytes(), err
 }
 
 func (m *Metadata) SetTopic(node string, metadata TopicMetadata) {

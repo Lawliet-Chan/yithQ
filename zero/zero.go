@@ -116,9 +116,11 @@ func (z *Zero) ForFetchMetadata(w http.ResponseWriter, req *http.Request) {
 	version := atomic.LoadUint32(&z.metadataVersion)
 	byt, err := meta.NewMetadata().Marshal(topicNodeMap, version)
 	if err != nil {
+		logger.Lg.Errorf("yith(%s) fetch metadata  error :%v", req.RemoteAddr, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		return
 	}
+	logger.Lg.Infof("for fetch metadata %v", byt)
 	w.Write(byt)
 }
