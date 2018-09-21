@@ -56,10 +56,6 @@ func (m *Metadata) RemoveTopic(node string, metadata TopicMetadata) {
 	m.TopicNodeMap.Delete(metadata)
 }
 
-func (m *Metadata) FindNode(topic string) string {
-
-}
-
 func (m *Metadata) FindReplicaNodes(topic string) []string {
 	nodes := make([]string, 0)
 	m.TopicNodeMap.Range(func(tmi, node interface{}) bool {
@@ -71,10 +67,6 @@ func (m *Metadata) FindReplicaNodes(topic string) []string {
 		return true
 	})
 	return nodes
-}
-
-func (m *Metadata) FindNodeWithPartition(topic string, partition int, isReplica bool) string {
-
 }
 
 func (m *Metadata) FindPatitionID(topic, nodeIP string, isReplica bool) (parititionID int) {
