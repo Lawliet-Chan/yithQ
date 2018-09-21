@@ -1,0 +1,17 @@
+replica_tcp_port: :9992
+
+producer_port: :9970
+
+consumer_port: :9971
+
+replica_factory:  3
+
+zero_address: localhost:9900
+
+watch_port: :9901
+
+heartbeat_interval: 10s
+
+queue_conf:
+  memory_queue_conf:
+    ring_buffer_capacity: 1024*10

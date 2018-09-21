@@ -34,7 +34,7 @@ func (z *Zero) Run() {
 	go z.ListenYith()
 	go func() {
 		http.HandleFunc("/fetch_meta", z.ForFetchMetadata)
-		http.ListenAndServe(z.cfg.ForFetchMetaPort, nil)
+		http.ListenAndServe(z.cfg.ListenPort, nil)
 	}()
 	select {}
 }

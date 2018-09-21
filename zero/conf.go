@@ -6,11 +6,11 @@ import (
 )
 
 type Config struct {
-	ListenPort       string
-	YithWatchPort    string
-	ForFetchMetaPort string
+	ListenPort    string `yaml:"listen_port"`
+	YithWatchPort string `yaml:"yith_watch_port"`
+	//ForFetchMetaPort string `yaml:"for_fetch_meta_port"`
 
-	HeartbeatTimeout string
+	HeartbeatTimeout string `yaml:"heartbeat_timeout"`
 }
 
 func InitConfig() *Config {

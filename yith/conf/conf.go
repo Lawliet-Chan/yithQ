@@ -6,25 +6,25 @@ import (
 )
 
 type Config struct {
-	*QueueConf
+	QueueConf *QueueConf `yaml:"queue_conf"`
 
-	ReplicaTcpPort string
-	ProducerPort   string
-	ConsumerPort   string
+	ReplicaTcpPort string `yaml:"replica_tcp_port"`
+	ProducerPort   string `yaml:"producer_port"`
+	ConsumerPort   string `yaml:"consumer_port"`
 
-	ReplicaFactory int
+	ReplicaFactory int `yaml:"replica_factory"`
 
-	ZeroAddress       string
-	WatchPort         string
-	HeartbeatInterval string
+	ZeroAddress       string `yaml:"zero_address"`
+	WatchPort         string `yaml:"watch_port"`
+	HeartbeatInterval string `yaml:"heartbeat_interval"`
 }
 
 type QueueConf struct {
-	*MemoryQueueConf
+	MemoryQueueConf *MemoryQueueConf `yaml:"memory_queue_conf"`
 }
 
 type MemoryQueueConf struct {
-	RingBufferCapacity int64
+	RingBufferCapacity int64 `yaml:"ring_buffer_capacity"`
 }
 
 func InitConfig() *Config {
