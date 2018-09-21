@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"sync"
 	"yithQ/message"
+	"yithQ/yith/conf"
 )
 
 type Node struct {
@@ -25,12 +26,17 @@ func NewNode(ip string) *Node {
 	}
 }
 
-func (n *Node) AddTopicPartition(topic string, partitionID int, isReplica bool) {
+func (n *Node) AddTopicPartition(topic string, partitionID int, isReplica bool, queueCfg *conf.QueueConf) error {
+	newPartition, err := NewPartition(partitionID, topic, isReplica, queueCfg)
+	if err != nil {
+		return err
+	}
 	n.topicPartition.Store(TopicPartitionInfo{
 		Topic:       topic,
 		PartitionID: partitionID,
-	}, NewPartition(partitionID, topic, isReplica))
+	}, newPartition)
 	n.partitionID2Topic.Store(partitionID, topic)
+	return nil
 }
 
 func (n *Node) ProduceTopic(topic string, msgs []*message.Message) (err error) {

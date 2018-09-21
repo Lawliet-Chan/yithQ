@@ -2,7 +2,9 @@ package yith
 
 import (
 	"net/http"
+	"strconv"
 	"yithQ/message"
+	"yithQ/yith/conf"
 	"yithQ/yith/queue"
 )
 
@@ -11,18 +13,25 @@ type Partition struct {
 	topicName string
 	q         *queue.Queue
 
+	//TODO: will use watermark to Increase performance
 	watermark uint64
 
 	isRepplica bool
 }
 
-func NewPartition(id int, topicName string, isReplica bool) *Partition {
-	return &Partition{
-		id:        id,
-		topicName: topicName,
-		//q:q,
-		isRepplica: isReplica,
+func NewPartition(id int, topicName string, isReplica bool, queueCfg *conf.QueueConf) (*Partition, error) {
+	memoryQ := queue.NewMemoryQueue(queueCfg.MemoryQueueConf)
+	diskQ, err := queue.NewDiskQueue(topicName + "__" + strconv.Itoa(id))
+	if err != nil {
+		return nil, err
 	}
+	queue := queue.NewQueue(memoryQ, diskQ)
+	return &Partition{
+		id:         id,
+		topicName:  topicName,
+		q:          queue,
+		isRepplica: isReplica,
+	}, nil
 }
 
 func (p *Partition) Produce(msgs []*message.Message) error {

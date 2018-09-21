@@ -6,10 +6,7 @@ import (
 )
 
 type Config struct {
-	UseMemoryQueue bool
-	UseDiskQueue   bool
-	*DiskQueueConf
-	*MemoryQueueConf
+	*QueueConf
 
 	ReplicaTcpPort string
 	ProducerPort   string
@@ -22,7 +19,8 @@ type Config struct {
 	HeartbeatInterval string
 }
 
-type DiskQueueConf struct {
+type QueueConf struct {
+	*MemoryQueueConf
 }
 
 type MemoryQueueConf struct {

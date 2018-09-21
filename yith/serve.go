@@ -94,7 +94,13 @@ func (s *Serve) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request
 	}
 
 	if !s.node.ExistTopicPartition(msgs.Topic, msgs.PartitionID) {
-		s.node.AddTopicPartition(msgs.Topic, msgs.PartitionID, false)
+		err = s.node.AddTopicPartition(msgs.Topic, msgs.PartitionID, false, s.cfg.QueueConf)
+		if err != nil {
+			Lg.Errorf("producer(%s) produce msgs to topic(%s) [CREATE new topic partition] error : %v", req.RemoteAddr, msgs.Topic, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
 		//通知zero
 		s.watcher.PushChangeToZero(meta.TopicAddChange, meta.TopicMetadata{
 			Topic:          msgs.Topic,

@@ -27,13 +27,13 @@ type memoryQueue struct {
 	msgRingBuffer  []*message.Message
 }
 
-func NewMemoryQueue(cfg *conf.MemoryQueueConf) (MemoryQueue, error) {
+func NewMemoryQueue(cfg *conf.MemoryQueueConf) MemoryQueue {
 	mq := &memoryQueue{
 		msgRingBuffer: make([]*message.Message, cfg.RingBufferCapacity),
 	}
 	mq.disruptor = disruptor.Configure(cfg.RingBufferCapacity).WithConsumerGroup(mq).Build()
 	mq.ringBufferMask = cfg.RingBufferCapacity - 1
-	return mq, nil
+	return mq
 }
 
 func (mq *memoryQueue) FillToMemory(msgs []*message.Message) error {
