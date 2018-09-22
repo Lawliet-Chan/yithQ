@@ -121,6 +121,5 @@ func (z *Zero) ForFetchMetadata(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
-	logger.Lg.Infof("for fetch metadata %v", byt)
 	w.Write(byt)
 }

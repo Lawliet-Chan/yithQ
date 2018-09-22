@@ -47,13 +47,13 @@ func (s *Serve) Run() {
 	}
 	s.updateMetadata(metadata)
 	go func() {
-		http.HandleFunc("/", s.ReceiveMsgFromProducers)
+		http.HandleFunc("/produce", s.ReceiveMsgFromProducers)
 		http.HandleFunc("/replica", s.receiveReplicaFromOtherNodes)
 		http.ListenAndServe(s.cfg.ProducerPort, nil)
 	}()
 
 	go func() {
-		http.HandleFunc("/", s.SendMsgToConsumers)
+		http.HandleFunc("/consume", s.SendMsgToConsumers)
 		http.ListenAndServe(s.cfg.ConsumerPort, nil)
 	}()
 
