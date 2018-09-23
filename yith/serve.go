@@ -12,6 +12,7 @@ import (
 	"yithQ/message"
 	"yithQ/meta"
 	. "yithQ/util/logger"
+	"yithQ/util/router"
 	"yithQ/yith/conf"
 )
 
@@ -27,11 +28,15 @@ func NewServe(cfg *conf.Config) *Serve {
 	if err != nil {
 		panic(err)
 	}
+	watcher, err := NewWatcher(cfg.ZeroAddress, cfg.HeartbeatInterval, cfg.WatchPort)
+	if err != nil {
+		panic(err)
+	}
 	s := &Serve{
 		cfg:      cfg,
 		metadata: &atomic.Value{},
 		node:     NewNode(ip),
-		watcher:  NewWatcher(cfg.ZeroAddress, cfg.HeartbeatInterval, cfg.WatchPort),
+		watcher:  watcher,
 	}
 
 	s.metadata.Store(meta.NewMetadata())
@@ -47,14 +52,16 @@ func (s *Serve) Run() {
 	}
 	s.updateMetadata(metadata)
 	go func() {
-		http.HandleFunc("/produce", s.ReceiveMsgFromProducers)
-		http.HandleFunc("/replica", s.receiveReplicaFromOtherNodes)
-		http.ListenAndServe(s.cfg.ProducerPort, nil)
+		r := router.NewRouter()
+		r.HandleFunc(http.MethodPost, "/produce", s.ReceiveMsgFromProducers)
+		r.HandleFunc(http.MethodPost, "/replica", s.receiveReplicaFromOtherNodes)
+		http.ListenAndServe(s.cfg.ProducerPort, r)
 	}()
 
 	go func() {
-		http.HandleFunc("/consume", s.SendMsgToConsumers)
-		http.ListenAndServe(s.cfg.ConsumerPort, nil)
+		r := router.NewRouter()
+		r.HandleFunc(http.MethodPost, "/consume", s.SendMsgToConsumers)
+		http.ListenAndServe(s.cfg.ConsumerPort, r)
 	}()
 
 	s.watcher.PushChangeToZero(meta.NodeChange, nil)
@@ -108,12 +115,18 @@ func (s *Serve) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request
 			return
 		}
 		//通知zero
-		s.watcher.PushChangeToZero(meta.TopicAddChange, meta.TopicMetadata{
+		err = s.watcher.PushChangeToZero(meta.TopicReplicaAddChange, meta.TopicMetadata{
 			Topic:          msgs.Topic,
 			PartitionID:    msgs.PartitionID,
 			IsReplica:      false,
 			ReplicaFactory: s.cfg.ReplicaFactory,
 		})
+		if err != nil {
+			Lg.Errorf("producer(%s) produce msgs to topic(%s) [PUSH change to zero] error : %v", req.RemoteAddr, msgs.Topic, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
 	}
 
 	var replicaErrCh chan error

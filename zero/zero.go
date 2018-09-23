@@ -2,20 +2,22 @@ package zero
 
 import (
 	"bytes"
-	"github.com/CrocdileChan/yapool"
+	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync/atomic"
 	"yithQ/meta"
 	"yithQ/util/logger"
+	"yithQ/util/router"
 )
 
 type Zero struct {
 	//sync.Mutex
 	//yithNodes []string
 	//metadata    *meta.Metadata
-	weightQueue     *WeightQueue
-	center          *yapool.Center
+	weightQueue *WeightQueue
+	//center          *yapool.Center
 	cfg             *Config
 	metadataVersion uint32
 }
@@ -24,43 +26,51 @@ func NewZero(cfg *Config) *Zero {
 	return &Zero{
 		//yithNodes: make([]string, 0),
 		//metadata:    meta.NewMetadata(),
-		weightQueue:     NewWeightQueue(),
-		center:          yapool.NewCenter(cfg.ListenPort),
+		weightQueue: NewWeightQueue(),
+		//center:          yapool.NewCenter(cfg.ListenPort),
 		cfg:             cfg,
 		metadataVersion: 0,
 	}
 }
 
 func (z *Zero) Run() {
-	logger.Lg.Info("zero start run ...")
+	logger.Lg.Info("zero start running ...")
 	go z.ListenYith()
-	go func() {
+	/*go func() {
 		http.HandleFunc("/fetch_meta", z.ForFetchMetadata)
 		http.ListenAndServe(z.cfg.ListenPort, nil)
-	}()
+	}()*/
 	select {}
 }
 
 func (z *Zero) ListenYith() {
 	logger.Lg.Infof("zero listen yith nodes by port %s ", z.cfg.ListenPort)
 	logger.Lg.Infof("nortify yith nodes by port %s", z.cfg.YithWatchPort)
-	z.center.ReceiveWithFunc(func(remoteAddr string, msg *yapool.Msg) {
+
+	r := router.NewRouter()
+	r.HandleFunc(http.MethodGet, "/"+meta.HeartbeatStr, z.ReceiveHeartbeat)
+	r.HandleFunc(http.MethodPost, "/"+meta.TopicReplicaAddChangeStr, z.AddTopicReplica)
+	r.HandleFunc(http.MethodPost, "/"+meta.FetchMetadataStr, z.ForFetchMetadata)
+	r.HandleFunc(http.MethodPost, "/"+meta.TopicPartitionDeleteChangeStr, z.DeleteTopicPartition)
+	http.ListenAndServe(z.cfg.ListenPort, r)
+
+	/*z.center.ReceiveWithFunc(func(remoteAddr string, msg *yapool.Msg) {
 		switch msg.Level {
-		case meta.TopicAddChange:
-			z.AddTopic(remoteAddr, msg.Msg.(meta.TopicMetadata))
+		case meta.TopicReplicaAddChange:
+			z.addTopicReplica(remoteAddr, msg.Msg.(meta.TopicMetadata))
 			z.NortifyAllYiths()
 		case meta.TopicDeleteChange:
-			z.DeleteTopic(remoteAddr, msg.Msg.(meta.TopicMetadata))
+			z.deleteTopic(remoteAddr, msg.Msg.(meta.TopicMetadata))
 			z.NortifyAllYiths()
-		case meta.NodeChange:
-			z.AddNode(remoteAddr)
-			z.NortifyAllYiths()
+			//	case meta.NodeChange:
+			//		z.AddNode(remoteAddr)
+			//		z.NortifyAllYiths()
 			//z.yithNodes = append(z.yithNodes, remoteAddr)
 		}
 	},
 		z.cfg.HeartbeatTimeout,
 		nil,
-		z.yithNodeExpire)
+		z.yithNodeExpire)*/
 
 }
 
@@ -85,7 +95,24 @@ func (z *Zero) NortifyAllYiths() error {
 	return nil
 }
 
-func (z *Zero) AddTopic(yithNode string, topic meta.TopicMetadata) {
+func (z *Zero) AddTopicReplica(w http.ResponseWriter, req *http.Request) {
+	byt, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		logger.Lg.Errorf("yith(%s) add topic replica [read http body] error : %v", req.RemoteAddr, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	var topic meta.TopicMetadata
+	err = json.Unmarshal(byt, &topic)
+	if err != nil {
+		logger.Lg.Errorf("yith(%s) add topic(%s) replica [json decode]  error : %v", req.RemoteAddr, topic.Topic, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	z.addTopicReplica(req.RemoteAddr, topic)
+}
+
+func (z *Zero) addTopicReplica(yithNode string, topic meta.TopicMetadata) {
 	nodes := z.weightQueue.PopNodesWithout(topic.ReplicaFactory, yithNode)
 	for i, node := range nodes {
 		z.weightQueue.Put(node, meta.TopicMetadata{
@@ -95,15 +122,34 @@ func (z *Zero) AddTopic(yithNode string, topic meta.TopicMetadata) {
 			ReplicaFactory: topic.ReplicaFactory,
 		})
 	}
-	//z.metadata.SetTopic(yithNode, topic)
 }
 
+/*
 func (z *Zero) AddNode(yithNode string) {
 	z.weightQueue.AddNode(yithNode)
 }
+*/
 
-func (z *Zero) DeleteTopic(yithNode string, topic meta.TopicMetadata) {
+func (z *Zero) DeleteTopicPartition(w http.ResponseWriter, req *http.Request) {
+	byt, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		logger.Lg.Errorf("yith(%s) delete topic  [read http body] error : %v", req.RemoteAddr, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	var topic meta.TopicMetadata
+	err = json.Unmarshal(byt, &topic)
+	if err != nil {
+		logger.Lg.Errorf("yith(%s) delete topic(%s)  [json decode]  error : %v", req.RemoteAddr, topic.Topic, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	z.deleteTopicPartition(req.RemoteAddr, topic)
+}
+
+func (z *Zero) deleteTopicPartition(yithNode string, topic meta.TopicMetadata) {
 	//z.metadata.RemoveTopic(yithNode, topic)
+
 }
 
 func (z *Zero) yithNodeExpire(yithAddr string) {
@@ -122,4 +168,10 @@ func (z *Zero) ForFetchMetadata(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	w.Write(byt)
+}
+
+func (z *Zero) ReceiveHeartbeat(w http.ResponseWriter, req *http.Request) {
+	if !z.weightQueue.AddNode(req.RemoteAddr) {
+		z.NortifyAllYiths()
+	}
 }

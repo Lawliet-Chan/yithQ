@@ -1,20 +1,35 @@
 package meta
 
-type Signal uint
+type Signal int
 
 const (
-	NodeChange Signal = iota
-	TopicAddChange
+	Heartbeat Signal = iota
+	NodeChange
+	TopicPartitionAddChange
 	TopicDeleteChange
+	TopicReplicaAddChange
+	TopicPartitionDeleteChange
+	FetchMetadata
 )
 
 var (
-	NodeChangeStr        = "node-change"
-	TopicAddChangeStr    = "topic-add-change"
-	TopicDeleteChangeStr = "topic-delete-change"
+	HeartbeatStr                  = "heartbeat"
+	NodeChangeStr                 = "node-change"
+	TopicPartitionAddChangeStr    = "topic-partition-add-change"
+	TopicDeleteChangeStr          = "topic-delete-change"
+	TopicReplicaAddChangeStr      = "topic-replica-add-change"
+	TopicPartitionDeleteChangeStr = "topic-partition-delete-change"
+	FetchMetadataStr              = "fetch-metadata"
 )
 
-var SignalTypes = []string{NodeChangeStr, TopicAddChangeStr, TopicDeleteChangeStr}
+var SignalTypes = []string{
+	HeartbeatStr,
+	NodeChangeStr,
+	TopicPartitionAddChangeStr,
+	TopicDeleteChangeStr,
+	TopicReplicaAddChangeStr,
+	TopicPartitionDeleteChangeStr,
+}
 
 func (st Signal) String() string {
 	return SignalTypes[st]
