@@ -29,6 +29,7 @@ var SignalTypes = []string{
 	TopicDeleteChangeStr,
 	TopicReplicaAddChangeStr,
 	TopicPartitionDeleteChangeStr,
+	FetchMetadataStr,
 }
 
 func (st Signal) String() string {
