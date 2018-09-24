@@ -31,10 +31,10 @@ func (nws NodeWeights) Less(i, j int) bool {
 	return nws[i].Weight < nws[j].Weight
 }
 
-func (nws NodeWeights) addNode(node string) bool {
+func (nws NodeWeights) addNode(node string) {
 	for _, nw := range nws {
 		if nw.Node == node {
-			return true
+			return
 		}
 	}
 
@@ -43,7 +43,6 @@ func (nws NodeWeights) addNode(node string) bool {
 		Weight: 0,
 	})
 
-	return false
 }
 
 func (nws NodeWeights) deleteNode(nodeName string) {
@@ -88,10 +87,10 @@ func (wq *WeightQueue) Put(node string, topic meta.TopicMetadata) {
 	sort.Sort(wq.nodeWeights)
 }
 
-func (wq *WeightQueue) AddNode(node string) bool {
+func (wq *WeightQueue) AddNode(node string) {
 	wq.Lock()
 	defer wq.Unlock()
-	return wq.nodeWeights.addNode(node)
+	wq.nodeWeights.addNode(node)
 }
 
 func (wq *WeightQueue) GetNode(topic meta.TopicMetadata) string {
