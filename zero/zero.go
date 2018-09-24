@@ -49,7 +49,7 @@ func (z *Zero) ListenYith() {
 	r := router.NewRouter()
 	r.HandleFunc(http.MethodGet, "/"+meta.HeartbeatStr, z.ReceiveHeartbeat)
 	r.HandleFunc(http.MethodPost, "/"+meta.TopicReplicaAddChangeStr, z.AddTopicReplica)
-	r.HandleFunc(http.MethodPost, "/"+meta.FetchMetadataStr, z.ForFetchMetadata)
+	r.HandleFunc(http.MethodGet, "/"+meta.FetchMetadataStr, z.ForFetchMetadata)
 	r.HandleFunc(http.MethodPost, "/"+meta.TopicPartitionDeleteChangeStr, z.DeleteTopicPartition)
 	http.ListenAndServe(z.cfg.ListenPort, r)
 
