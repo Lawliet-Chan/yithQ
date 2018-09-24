@@ -112,24 +112,6 @@ func (z *Zero) AddTopicReplica(w http.ResponseWriter, req *http.Request) {
 	z.addTopicReplica(req.RemoteAddr, topic)
 }
 
-func (z *Zero) addTopicReplica(yithNode string, topic meta.TopicMetadata) {
-	nodes := z.weightQueue.PopNodesWithout(topic.ReplicaFactory, yithNode)
-	for i, node := range nodes {
-		z.weightQueue.Put(node, meta.TopicMetadata{
-			Topic:          topic.Topic,
-			PartitionID:    topic.PartitionID*100 + i,
-			IsReplica:      true,
-			ReplicaFactory: topic.ReplicaFactory,
-		})
-	}
-}
-
-/*
-func (z *Zero) AddNode(yithNode string) {
-	z.weightQueue.AddNode(yithNode)
-}
-*/
-
 func (z *Zero) DeleteTopicPartition(w http.ResponseWriter, req *http.Request) {
 	byt, err := ioutil.ReadAll(req.Body)
 	if err != nil {
@@ -145,16 +127,6 @@ func (z *Zero) DeleteTopicPartition(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	z.deleteTopicPartition(req.RemoteAddr, topic)
-}
-
-func (z *Zero) deleteTopicPartition(yithNode string, topic meta.TopicMetadata) {
-	//z.metadata.RemoveTopic(yithNode, topic)
-
-}
-
-func (z *Zero) yithNodeExpire(yithAddr string) {
-	logger.Lg.Warnf("yith_node(%s) expired!", yithAddr)
-	z.weightQueue.DeleteNode(yithAddr)
 }
 
 func (z *Zero) ForFetchMetadata(w http.ResponseWriter, req *http.Request) {
@@ -174,4 +146,25 @@ func (z *Zero) ReceiveHeartbeat(w http.ResponseWriter, req *http.Request) {
 	if !z.weightQueue.AddNode(req.RemoteAddr) {
 		z.NortifyAllYiths()
 	}
+}
+
+func (z *Zero) addTopicReplica(yithNode string, topic meta.TopicMetadata) {
+	nodes := z.weightQueue.PopNodesWithout(topic.ReplicaFactory, yithNode)
+	for i, node := range nodes {
+		z.weightQueue.Put(node, meta.TopicMetadata{
+			Topic:          topic.Topic,
+			PartitionID:    topic.PartitionID*100 + i,
+			IsReplica:      true,
+			ReplicaFactory: topic.ReplicaFactory,
+		})
+	}
+}
+
+func (z *Zero) deleteTopicPartition(yithNode string, topic meta.TopicMetadata) {
+	z.weightQueue.DeleteTopicPartition(topic)
+}
+
+func (z *Zero) yithNodeExpire(yithAddr string) {
+	logger.Lg.Warnf("yith_node(%s) expired!", yithAddr)
+	z.weightQueue.DeleteNode(yithAddr)
 }

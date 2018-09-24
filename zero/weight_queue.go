@@ -60,6 +60,14 @@ func (nws NodeWeights) deleteNode(nodeName string) {
 	}
 }
 
+func (nws NodeWeights) reduceNodeWeight(nodeName string) {
+	for _, nw := range nws {
+		if nw.Node == nodeName {
+			nw.Weight -= 1
+		}
+	}
+}
+
 func NewWeightQueue() *WeightQueue {
 	return &WeightQueue{
 		nodeWeights: make([]*NodeWeight, 0),
@@ -78,12 +86,7 @@ func (wq *WeightQueue) Put(node string, topic meta.TopicMetadata) {
 			//exists = true
 		}
 	}
-	/*if !exists {
-		wq.nodeWeights = append(wq.nodeWeights, &NodeWeight{
-			Node:   node,
-			Weight: 0,
-		})
-	}*/
+
 	sort.Sort(wq.nodeWeights)
 }
 
@@ -134,6 +137,17 @@ func (wq *WeightQueue) DeleteNode(nodeName string) {
 		}
 	}
 	wq.nodeWeights.deleteNode(nodeName)
+
+}
+
+func (wq *WeightQueue) DeleteTopicPartition(tm meta.TopicMetadata) {
+	wq.Lock()
+	defer wq.Unlock()
+	if node, ok := wq.topicNode[tm]; ok {
+		delete(wq.topicNode, tm)
+		wq.nodeWeights.reduceNodeWeight(node)
+	}
+	sort.Sort(wq.nodeWeights)
 
 }
 
