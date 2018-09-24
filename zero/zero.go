@@ -6,40 +6,39 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"sync/atomic"
+	"time"
 	"yithQ/meta"
 	"yithQ/util/logger"
 	"yithQ/util/router"
 )
 
 type Zero struct {
-	//sync.Mutex
-	//yithNodes []string
-	//metadata    *meta.Metadata
-	weightQueue *WeightQueue
-	//center          *yapool.Center
-	cfg             *Config
-	metadataVersion uint32
+	weightQueue      *WeightQueue
+	cfg              *Config
+	metadataVersion  uint32
+	nodeTimer        *sync.Map //map[string]*time.Timer
+	heartbeatTimeout time.Duration
 }
 
 func NewZero(cfg *Config) *Zero {
+	timeout, err := time.ParseDuration(cfg.HeartbeatTimeout)
+	if err != nil {
+		logger.Lg.Fatalf("parse heartbeatTimeout(%s) to duration error : %v", cfg.HeartbeatTimeout, err)
+	}
 	return &Zero{
-		//yithNodes: make([]string, 0),
-		//metadata:    meta.NewMetadata(),
-		weightQueue: NewWeightQueue(),
-		//center:          yapool.NewCenter(cfg.ListenPort),
-		cfg:             cfg,
-		metadataVersion: 0,
+		weightQueue:      NewWeightQueue(),
+		cfg:              cfg,
+		metadataVersion:  0,
+		nodeTimer:        &sync.Map{},
+		heartbeatTimeout: timeout,
 	}
 }
 
 func (z *Zero) Run() {
 	logger.Lg.Info("zero start running ...")
 	go z.ListenYith()
-	/*go func() {
-		http.HandleFunc("/fetch_meta", z.ForFetchMetadata)
-		http.ListenAndServe(z.cfg.ListenPort, nil)
-	}()*/
 	select {}
 }
 
@@ -53,24 +52,6 @@ func (z *Zero) ListenYith() {
 	r.HandleFunc(http.MethodPost, "/"+meta.FetchMetadataStr, z.ForFetchMetadata)
 	r.HandleFunc(http.MethodPost, "/"+meta.TopicPartitionDeleteChangeStr, z.DeleteTopicPartition)
 	http.ListenAndServe(z.cfg.ListenPort, r)
-
-	/*z.center.ReceiveWithFunc(func(remoteAddr string, msg *yapool.Msg) {
-		switch msg.Level {
-		case meta.TopicReplicaAddChange:
-			z.addTopicReplica(remoteAddr, msg.Msg.(meta.TopicMetadata))
-			z.NortifyAllYiths()
-		case meta.TopicDeleteChange:
-			z.deleteTopic(remoteAddr, msg.Msg.(meta.TopicMetadata))
-			z.NortifyAllYiths()
-			//	case meta.NodeChange:
-			//		z.AddNode(remoteAddr)
-			//		z.NortifyAllYiths()
-			//z.yithNodes = append(z.yithNodes, remoteAddr)
-		}
-	},
-		z.cfg.HeartbeatTimeout,
-		nil,
-		z.yithNodeExpire)*/
 
 }
 
@@ -144,6 +125,10 @@ func (z *Zero) ForFetchMetadata(w http.ResponseWriter, req *http.Request) {
 
 func (z *Zero) ReceiveHeartbeat(w http.ResponseWriter, req *http.Request) {
 	if !z.weightQueue.AddNode(req.RemoteAddr) {
+		f := func() {
+			z.yithNodeExpire(req.RemoteAddr)
+		}
+		z.nodeTimer.Store(req.RemoteAddr, time.AfterFunc(z.heartbeatTimeout, f))
 		z.NortifyAllYiths()
 	}
 }
@@ -167,4 +152,5 @@ func (z *Zero) deleteTopicPartition(yithNode string, topic meta.TopicMetadata) {
 func (z *Zero) yithNodeExpire(yithAddr string) {
 	logger.Lg.Warnf("yith_node(%s) expired!", yithAddr)
 	z.weightQueue.DeleteNode(yithAddr)
+	z.nodeTimer.Delete(yithAddr)
 }
