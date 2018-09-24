@@ -32,20 +32,18 @@ func (nws NodeWeights) Less(i, j int) bool {
 }
 
 func (nws NodeWeights) addNode(node string) bool {
-	exist := false
 	for _, nw := range nws {
 		if nw.Node == node {
-			exist = true
-			break
+			return true
 		}
 	}
-	if !exist {
-		nws = append(nws, &NodeWeight{
-			Node:   node,
-			Weight: 0,
-		})
-	}
-	return exist
+
+	nws = append(nws, &NodeWeight{
+		Node:   node,
+		Weight: 0,
+	})
+
+	return false
 }
 
 func (nws NodeWeights) deleteNode(nodeName string) {

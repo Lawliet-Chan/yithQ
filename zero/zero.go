@@ -130,6 +130,10 @@ func (z *Zero) ReceiveHeartbeat(w http.ResponseWriter, req *http.Request) {
 		}
 		z.nodeTimer.Store(req.RemoteAddr, time.AfterFunc(z.heartbeatTimeout, f))
 		z.NortifyAllYiths()
+		logger.Lg.Infof("New Yith node (%s) join in Zero", req.RemoteAddr)
+	} else {
+		timer, _ := z.nodeTimer.Load(req.RemoteAddr)
+		timer.(*time.Timer).Reset(z.heartbeatTimeout)
 	}
 }
 

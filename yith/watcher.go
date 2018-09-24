@@ -43,7 +43,7 @@ func (w *Watcher) SendHeartbeatToZero() error {
 		Transport: &http.Transport{
 			MaxIdleConns:        1, //MaxIdleConns=len(zero_addresses)
 			MaxIdleConnsPerHost: 1,
-			DisableKeepAlives:   true,
+			DisableKeepAlives:   false,
 		},
 	}
 
