@@ -1,8 +1,8 @@
 package queue
 
 import (
-	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
@@ -56,8 +56,19 @@ func NewDiskQueue(topicPartitionInfo string) (DiskQueue, error) {
 		}
 		storeFiles = append(storeFiles, diskFile)
 	}
-	lastOffset := storeFiles[len(storeFiles)-1].endOffset
-	writingFile, err := newDiskFile(topicPartitionInfo, seqArr[len(seqArr)-1]+1, false)
+	var lastOffset int64
+	if len(storeFiles) == 0 {
+		lastOffset = 0
+	} else {
+		lastOffset = storeFiles[len(storeFiles)-1].endOffset
+	}
+	var lastSeq int
+	if len(seqArr) == 0 {
+		lastSeq = 0
+	} else {
+		lastSeq = seqArr[len(seqArr)-1]
+	}
+	writingFile, err := newDiskFile(topicPartitionInfo, lastSeq+1, false)
 	if err != nil {
 		return nil, err
 	}
@@ -152,11 +163,12 @@ type DiskFile struct {
 }
 
 func newDiskFile(name string, seq int, isFull bool) (*DiskFile, error) {
+
 	dataf, err := os.OpenFile(name+"_"+strconv.Itoa(seq)+".data", os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
-	indexf, err := os.OpenFile(name+"_"+strconv.Itoa(seq)+".index", os.O_CREATE|os.O_RDWR, 0644)
+	indexf, err := os.OpenFile(name+"_"+strconv.Itoa(seq)+".index", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
@@ -197,19 +209,6 @@ func newDiskFile(name string, seq int, isFull bool) (*DiskFile, error) {
 	}, nil
 }
 
-/*
-func recoverDiskFile(dataFileName string) (*DiskFile, error) {
-	dataf,err:=os.Open(dataFileName)
-	if err != nil {
-		return nil, err
-	}
-	indexf,err:=os.Open(strings.TrimSuffix(dataFileName,".data")+".index")
-	if err != nil {
-		return nil,err
-	}
-
-}
-*/
 //TODO: will use mmap() to store data into file next version.
 //write batch
 //batchStartOffset=lastOffset+1
@@ -217,7 +216,7 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 
 	dataFileSize := atomic.LoadInt64(&df.size)
 
-	dataRef, err := syscall.Mmap(int(df.dataFile.Fd()), dataFileSize, int(DiskFileSizeLimit-dataFileSize), syscall.PROT_WRITE, syscall.MAP_SHARED)
+	dataRef, err := syscall.Mmap(int(df.dataFile.Fd()), dataFileSize, int(DiskFileSizeLimit-dataFileSize), syscall.PROT_WRITE|syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		return -1, err
 	}
@@ -258,6 +257,7 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 	atomic.StoreInt64(&df.size, dataFileSize+cursor)
 
 	atomic.StoreInt64(&df.endOffset, batchStartOffset+int64(len(msgs))-1)
+
 	return -1, nil
 }
 
@@ -283,7 +283,11 @@ func (df *DiskFile) read(msgOffset int64, batchCount int) ([]byte, error) {
 	_, startOffset := decodeIndex(startIndex)
 	_, endOffset := decodeIndex(endIndex)
 
-	return syscall.Mmap(int(df.dataFile.Fd()), startOffset, int(endOffset-startOffset), syscall.PROT_READ, syscall.MAP_SHARED)
+	fmt.Printf("startIndex is %s, endIndex is %s", string(startIndex), string(endIndex))
+	fmt.Println()
+	fmt.Printf("start is %d , offset is %d", startOffset, int(endOffset-startOffset))
+
+	return syscall.Mmap(int(df.dataFile.Fd()), startOffset, int(endOffset-startOffset), syscall.PROT_READ, syscall.MAP_PRIVATE)
 }
 
 func (df *DiskFile) getStartOffset() int64 {
@@ -306,7 +310,8 @@ func decodeIndex(indexBytes []byte) (msgOffset int64, dataPosition int64) {
 	msgOffsetStr := offsets[0]
 	dataPositionStr := offsets[1]
 	msgOffset, _ = strconv.ParseInt(msgOffsetStr, 10, 64)
-	dataPosition, _ = strconv.ParseInt(dataPositionStr, 10, 64)
+	dataPosition, _ = strconv.ParseInt(strings.Trim(dataPositionStr, "\x00"), 10, 64)
+
 	return
 }
 
@@ -315,6 +320,12 @@ func dataFileSize(f *os.File) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	realData := bytes.TrimRight(data, " ")
-	return int64(len(realData)), nil
+	var i int
+	for i = 0; i < len(data); i++ {
+		if data[i] == 0 {
+			break
+		}
+	}
+	//realData := bytes.TrimRight(data, " ")
+	return int64(len(data[:i])), nil
 }
