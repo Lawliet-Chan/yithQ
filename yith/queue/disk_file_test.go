@@ -49,7 +49,7 @@ func TestRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("json unmarshal msgs from disk file error : %v", err)
 	}
-	t.Logf("msg body is %s",string(msg.Body))
+	t.Logf("msg body is %s", string(msg.Body))
 	//for _, msg := range msgs {
 	//	t.Logf("read msgs from disk file is %v , body is %s", msg, string(msg.Body))
 	//}
