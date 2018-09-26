@@ -39,7 +39,7 @@ func TestPopFromDisk(t *testing.T) {
 		t.Fatalf("pop from disk error %v", err)
 	}
 	var msgs []*message.Message
-	err = json.Unmarshal(data, &msgs)
+	err = json.Unmarshal([]byte("["+string(data)+"]"), &msgs)
 	if err != nil {
 		t.Fatalf("json unmarshal %s error %v", string(data), err)
 	}

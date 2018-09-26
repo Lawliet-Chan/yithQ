@@ -25,6 +25,7 @@ type diskQueue struct {
 	readingFile    *DiskFile
 	storeFiles     atomic.Value //type is  []*DiskFile
 	lastOffset     int64
+	lastFileSeq    int
 }
 
 func NewDiskQueue(topicPartitionInfo string) (DiskQueue, error) {
@@ -67,22 +68,34 @@ func NewDiskQueue(topicPartitionInfo string) (DiskQueue, error) {
 	} else {
 		lastSeq = seqArr[len(seqArr)-1]
 	}
-	writingFile, err := newDiskFile(topicPartitionInfo, lastSeq+1, false)
+	/*writingFile, err := newDiskFile(topicPartitionInfo, lastSeq+1, false)
 	if err != nil {
 		return nil, err
 	}
-	storeFiles = append(storeFiles, writingFile)
+	storeFiles = append(storeFiles, writingFile)*/
 	dq := &diskQueue{
 		fileNamePrefix: topicPartitionInfo,
-		writingFile:    writingFile,
-		storeFiles:     atomic.Value{},
-		lastOffset:     lastOffset,
+		//writingFile:    writingFile,
+		storeFiles:  atomic.Value{},
+		lastOffset:  lastOffset,
+		lastFileSeq: lastSeq,
 	}
 	dq.storeFiles.Store(storeFiles)
 	return dq, nil
 }
 
 func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
+	if len(dq.storeFiles.Load().([]*DiskFile)) == 0 {
+		writingFile, err := newDiskFile(dq.fileNamePrefix, dq.lastFileSeq+1, false)
+		if err != nil {
+			return err
+		}
+		dq.lastFileSeq++
+		dq.writingFile = writingFile
+		dfs := dq.storeFiles.Load().([]*DiskFile)
+		dfs = append(dfs, writingFile)
+		dq.storeFiles.Store(dfs)
+	}
 	if dq.writingFile == nil {
 		storeFiles := dq.storeFiles.Load().([]*DiskFile)
 		dq.writingFile = storeFiles[len(storeFiles)-1]
@@ -109,6 +122,9 @@ func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
 }
 
 func (dq *diskQueue) PopFromDisk(msgOffset int64) ([]byte, error) {
+	if len(dq.storeFiles.Load().([]*DiskFile)) == 0 || dq.getLastOffset() == 0 {
+		return nil, ErrNoneMsg
+	}
 	if dq.readingFile == nil {
 		dq.readingFile = findReadingFileByOffset(dq.storeFiles.Load().([]*DiskFile), msgOffset)
 	}
@@ -136,10 +152,12 @@ func (dq *diskQueue) UpLastOffset(delta int64) int64 {
 }
 
 func findReadingFileByOffset(files []*DiskFile, msgOffset int64) *DiskFile {
+	//fmt.Printf("files length is %d, msg offset is %d   ", len(files), msgOffset)
 	midStoreFile := files[len(files)/2]
-	if midStoreFile.startOffset <= msgOffset && midStoreFile.endOffset >= msgOffset {
+	//fmt.Printf("startOffset is %d, endOffset is %d", midStoreFile.getStartOffset(), midStoreFile.getEndOffset())
+	if midStoreFile.getStartOffset() <= msgOffset && midStoreFile.getEndOffset() >= msgOffset {
 		return midStoreFile
-	} else if midStoreFile.startOffset > msgOffset {
+	} else if midStoreFile.getStartOffset() > msgOffset {
 		return findReadingFileByOffset(files[:len(files)/2], msgOffset)
 	}
 	return findReadingFileByOffset(files[len(files)/2:], msgOffset)
@@ -149,6 +167,7 @@ const DiskFileSizeLimit = 1024 * 1024 * 1024
 const EachIndexLen = 39
 
 var ErrMsgTooLarge error = errors.New("message too large")
+var ErrNoneMsg error = errors.New("none message")
 
 type DiskFile struct {
 	startOffset int64
