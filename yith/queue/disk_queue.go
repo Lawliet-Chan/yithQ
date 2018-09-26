@@ -163,12 +163,11 @@ type DiskFile struct {
 }
 
 func newDiskFile(name string, seq int, isFull bool) (*DiskFile, error) {
-
-	dataf, err := os.OpenFile(name+"_"+strconv.Itoa(seq)+".data", os.O_CREATE|os.O_RDWR, 0644)
+	dataf, err := os.OpenFile(name+"_"+strconv.Itoa(seq)+".data", os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		return nil, err
 	}
-	indexf, err := os.OpenFile(name+"_"+strconv.Itoa(seq)+".index", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
+	indexf, err := os.OpenFile(name+"_"+strconv.Itoa(seq)+".index", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
 		return nil, err
 	}
@@ -238,12 +237,13 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 		}
 
 		copy(dataRef[cursor:], byt)
-		cursor += int64(len(byt))
 
 		_, err = df.indexFile.Write(encodeIndex(batchStartOffset+int64(i), dataFileSize+cursor))
 		if err != nil {
 			return -1, err
 		}
+		cursor += int64(len(byt))
+
 	}
 
 	err = syscall.Munmap(dataRef)
@@ -262,32 +262,50 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 }
 
 func (df *DiskFile) read(msgOffset int64, batchCount int) ([]byte, error) {
-	startIndexPosition := (msgOffset - df.getStartOffset()) * EachIndexLen
+	var startOffset, endOffset int64
+	var err error
 
-	var endIndexPosition int64
+	startPositionInIndexFile := (msgOffset - df.getStartOffset()) * EachIndexLen
+
+	startOffset, err = df.getDatafilePosition(startPositionInIndexFile)
+	if err != nil {
+		return nil, err
+	}
+
+	var endPositionInIndexFile int64
 	if msgOffset+int64(batchCount)-1 < df.getEndOffset() {
-		endIndexPosition = (msgOffset - df.getStartOffset() + int64(batchCount)) * EachIndexLen
-	}
-	endIndexPosition = (df.getEndOffset() - df.getStartOffset()) * EachIndexLen
-	startIndex := make([]byte, EachIndexLen)
-	endIndex := make([]byte, EachIndexLen)
-	_, err := df.indexFile.ReadAt(startIndex, startIndexPosition)
-	if err != nil {
-		return nil, err
-	}
-	_, err = df.indexFile.ReadAt(endIndex, endIndexPosition)
-	if err != nil {
-		return nil, err
+		endPositionInIndexFile = (msgOffset - df.getStartOffset() + int64(batchCount)) * EachIndexLen
+		endOffset, err = df.getDatafilePosition(endPositionInIndexFile)
+		if err != nil {
+			return nil, err
+		}
+	} else if msgOffset+int64(batchCount)-1 == df.getEndOffset() {
+		endOffset = atomic.LoadInt64(&df.size)
+	} else {
+		endPositionInIndexFile = (df.getEndOffset() - df.getStartOffset()) * EachIndexLen
+		endOffset, err = df.getDatafilePosition(endPositionInIndexFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	_, startOffset := decodeIndex(startIndex)
-	_, endOffset := decodeIndex(endIndex)
-
-	fmt.Printf("startIndex is %s, endIndex is %s", string(startIndex), string(endIndex))
+	fmt.Printf("start index position is %d   ", startPositionInIndexFile)
+	fmt.Printf("end index position is %d   ", endPositionInIndexFile)
 	fmt.Println()
 	fmt.Printf("start is %d , offset is %d", startOffset, int(endOffset-startOffset))
 
 	return syscall.Mmap(int(df.dataFile.Fd()), startOffset, int(endOffset-startOffset), syscall.PROT_READ, syscall.MAP_PRIVATE)
+}
+
+func (df *DiskFile) getDatafilePosition(positionInIndexFile int64) (offset int64, err error) {
+	index := make([]byte, EachIndexLen)
+	_, err = df.indexFile.ReadAt(index, positionInIndexFile)
+	if err != nil {
+		return
+	}
+
+	_, offset = decodeIndex(index)
+	return
 }
 
 func (df *DiskFile) getStartOffset() int64 {

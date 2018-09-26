@@ -39,18 +39,19 @@ func TestRead(t *testing.T) {
 		t.Fatalf("new disk file error : %v", err)
 	}
 	df.startOffset = 1
-	byt, err := df.read(2, 1)
+	t.Logf("endOffset is %d", df.getEndOffset())
+	byt, err := df.read(1, 2)
 	if err != nil {
 		t.Fatalf("read msgs from disk file error : %v", err)
 	}
-	t.Logf("read bytes is %s", string(byt))
-	var msg message.Message
-	err = json.Unmarshal(byt, &msg)
+	t.Logf("length is %d  ,  read bytes is %s", len(byt), string(byt))
+	var msgs []*message.Message
+	err = json.Unmarshal(byt, &msgs)
 	if err != nil {
 		t.Fatalf("json unmarshal msgs from disk file error : %v", err)
 	}
-	t.Logf("msg body is %s", string(msg.Body))
-	//for _, msg := range msgs {
-	//	t.Logf("read msgs from disk file is %v , body is %s", msg, string(msg.Body))
-	//}
+	//t.Logf("msg body is %s", string(msg.Body))
+	for _, msg := range msgs {
+		t.Logf("read msgs from disk file is %v , body is %s", msg, string(msg.Body))
+	}
 }
