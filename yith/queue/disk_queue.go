@@ -2,7 +2,6 @@ package queue
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
@@ -236,6 +235,11 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 			return i, syscall.Munmap(dataRef)
 		}
 
+		byt = []byte(string(byt) + ",")
+		//var buf bytes.Buffer
+		//buf.Write(byt)
+		//buf.Write([]byte(`,`))
+		//fmt.Println("bytes is ", string(buf.Bytes()))
 		copy(dataRef[cursor:], byt)
 
 		_, err = df.indexFile.Write(encodeIndex(batchStartOffset+int64(i), dataFileSize+cursor))
@@ -289,12 +293,7 @@ func (df *DiskFile) read(msgOffset int64, batchCount int) ([]byte, error) {
 		}
 	}
 
-	fmt.Printf("start index position is %d   ", startPositionInIndexFile)
-	fmt.Printf("end index position is %d   ", endPositionInIndexFile)
-	fmt.Println()
-	fmt.Printf("start is %d , offset is %d", startOffset, int(endOffset-startOffset))
-
-	return syscall.Mmap(int(df.dataFile.Fd()), startOffset, int(endOffset-startOffset), syscall.PROT_READ, syscall.MAP_PRIVATE)
+	return syscall.Mmap(int(df.dataFile.Fd()), startOffset, int(endOffset-startOffset-1), syscall.PROT_READ, syscall.MAP_PRIVATE)
 }
 
 func (df *DiskFile) getDatafilePosition(positionInIndexFile int64) (offset int64, err error) {

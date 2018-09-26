@@ -46,7 +46,8 @@ func TestRead(t *testing.T) {
 	}
 	t.Logf("length is %d  ,  read bytes is %s", len(byt), string(byt))
 	var msgs []*message.Message
-	err = json.Unmarshal(byt, &msgs)
+
+	err = json.Unmarshal([]byte("["+string(byt)+"]"), &msgs)
 	if err != nil {
 		t.Fatalf("json unmarshal msgs from disk file error : %v", err)
 	}
