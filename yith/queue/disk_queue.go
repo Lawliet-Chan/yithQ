@@ -302,14 +302,8 @@ func (df *DiskFile) read(msgOffset int64, batchCount int) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-	} else if msgOffset+int64(batchCount)-1 == df.getEndOffset() {
-		endOffset = atomic.LoadInt64(&df.size)
 	} else {
-		endPositionInIndexFile = (df.getEndOffset() - df.getStartOffset()) * EachIndexLen
-		endOffset, err = df.getDatafilePosition(endPositionInIndexFile)
-		if err != nil {
-			return nil, err
-		}
+		endOffset = atomic.LoadInt64(&df.size)
 	}
 
 	return syscall.Mmap(int(df.dataFile.Fd()), startOffset, int(endOffset-startOffset-1), syscall.PROT_READ, syscall.MAP_PRIVATE)
