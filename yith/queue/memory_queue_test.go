@@ -9,7 +9,7 @@ import (
 )
 
 func TestFillToMemory(t *testing.T) {
-	cfg := &conf.MemoryQueueConf{RingBufferCapacity: 1024}
+	cfg := &conf.MemoryQueueConf{RingBufferCapacity: 1024*64}
 	mq := NewMemoryQueue(cfg)
 	msg1 := &message.Message{
 		ID:        123456,
@@ -30,7 +30,7 @@ func TestFillToMemory(t *testing.T) {
 }
 
 func TestPopFromMemory(t *testing.T) {
-	cfg := &conf.MemoryQueueConf{RingBufferCapacity: 1024}
+	cfg := &conf.MemoryQueueConf{RingBufferCapacity: 1024*64}
 	mq := NewMemoryQueue(cfg)
 	msg1 := &message.Message{
 		ID:        123456,
