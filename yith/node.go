@@ -58,8 +58,11 @@ func (n *Node) ProduceTopicPartition(topic string, partitionID int, msgs []*mess
 	return partition.(*Partition).Produce(msgs)
 }
 
-func (n *Node) Consume(topic string, popOffset int64, writer http.ResponseWriter) error {
-	partition, _ := n.topicPartition.Load(topic)
+func (n *Node) Consume(topic string, partitionID int, popOffset int64, writer http.ResponseWriter) error {
+	partition, _ := n.topicPartition.Load(TopicPartitionInfo{
+		Topic:       topic,
+		PartitionID: partitionID,
+	})
 	return partition.(*Partition).Consume(popOffset, writer)
 }
 

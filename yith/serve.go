@@ -156,6 +156,13 @@ func (s *Serve) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request
 
 func (s *Serve) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 	topic := req.URL.Query()["topic"][0]
+	partitionIDstr := req.URL.Query()["partitionID"][0]
+	partitionID, err := strconv.Atoi(partitionIDstr)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(string(err.Error())))
+		return
+	}
 	offsetStr := req.URL.Query()["offset"][0]
 	offset, err := strconv.ParseInt(offsetStr, 10, 64)
 	if err != nil {
@@ -163,7 +170,7 @@ func (s *Serve) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte(string(err.Error())))
 		return
 	}
-	err = s.node.Consume(topic, offset, w)
+	err = s.node.Consume(topic, partitionID, offset, w)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(string(err.Error())))
