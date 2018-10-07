@@ -6,8 +6,8 @@ import (
 	"yithQ/yith/conf"
 
 	"encoding/json"
-	"net/http"
 	"fmt"
+	"net/http"
 )
 
 const (
@@ -44,9 +44,9 @@ func (mq *memoryQueue) FillToMemory(msgs []*message.Message) error {
 	for seq <= Iterations {
 		seq = writer.Reserve(reserveMany)
 		for i := seq - reserveMany + 1; i <= seq; i++ {
-			fmt.Println("seq=",seq)
-			fmt.Printf("i=%d,ringbufferMask=%d \n",i,mq.ringBufferMask)
-			fmt.Printf("msgRingBuffer length is %d \n msgs length is %d \n",len(mq.msgRingBuffer),len(msgs))
+			fmt.Printf("seq=%d \n", seq)
+			fmt.Printf("i=%d,ringbufferMask=%d \n", i, mq.ringBufferMask)
+			fmt.Printf("msgRingBuffer length is %d \n msgs length is %d \n", len(mq.msgRingBuffer), len(msgs))
 			mq.msgRingBuffer[i&mq.ringBufferMask] = msgs[i]
 		}
 		writer.Commit(seq-reserveMany+1, seq)
