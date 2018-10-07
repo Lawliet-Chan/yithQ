@@ -1,3 +1,5 @@
+//TODO: the memory_queue does not work in this version.
+
 package queue
 
 import (
