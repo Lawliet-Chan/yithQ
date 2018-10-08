@@ -5,12 +5,28 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"yithQ/message"
 )
 
 func main() {
-	consumerUrl := "http://localhost:9971/consume?topic=yith&partitionID=001&offset=1"
-	resp, err := http.Post(consumerUrl, "application/json", nil)
+	consumerUrl := "http://localhost:9971/consume"
+	//req, _ := http.NewRequest(http.MethodGet, consumerUrl, nil)
+	//q:=req.URL.Query()
+	//q.Set("topic","yith")
+	//q.Set("partitionID", "001")
+	//q.Set("offset","1")
+	//req.URL.RawQuery=q.Encode()
+	//fmt.Println("request url is ",req.URL.Query())
+	//cli := http.Client{}
+	//resp, err := cli.Do(req)
+
+	resp, err := http.PostForm(consumerUrl, url.Values{
+		"topic":       []string{"yith"},
+		"partitionID": []string{"0"},
+		"offset":      []string{"1"},
+	})
+	//http.Get(consumerUrl)
 	if err != nil {
 		panic("post consumerUrl error : " + err.Error())
 	}
@@ -18,11 +34,13 @@ func main() {
 	if err != nil {
 		panic("read consumer http response error : " + err.Error())
 	}
+	fmt.Println("data is ", string(data))
 	var msgs []*message.Message
 	err = json.Unmarshal([]byte("["+string(data)+"]"), &msgs)
 	if err != nil {
 		panic("json unmarshal msgs by consume from yith error : " + err.Error())
 	}
+	fmt.Println("msgs are ", msgs)
 	for _, msg := range msgs {
 		fmt.Println("msg body is : " + string(msg.Body))
 	}

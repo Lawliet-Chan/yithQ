@@ -114,8 +114,11 @@ func (wq *WeightQueue) PopNodes(count int) []string {
 func (wq *WeightQueue) PopNodesWithout(count int, withoutNode string) []string {
 	wq.RLock()
 	defer wq.RUnlock()
-	nws := wq.nodeWeights[:count+1]
 	nodes := make([]string, 0)
+	if count == 0 || len(wq.nodeWeights) == 0 {
+		return nodes
+	}
+	nws := wq.nodeWeights[:count+1]
 	for _, nw := range nws {
 		if nw.Node == withoutNode {
 			continue
