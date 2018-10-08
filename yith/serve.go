@@ -93,8 +93,8 @@ func (s *Serve) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	var msgs *message.Messages
-	err = json.Unmarshal(data, msgs)
+	var msgs message.Messages
+	err = json.Unmarshal(data, &msgs)
 	if err != nil {
 		Lg.Errorf("json unmarshal data(%s) error : %v", string(data), err)
 		w.WriteHeader(http.StatusBadRequest)

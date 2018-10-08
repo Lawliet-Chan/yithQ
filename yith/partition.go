@@ -20,12 +20,12 @@ type Partition struct {
 }
 
 func NewPartition(id int, topicName string, isReplica bool, queueCfg *conf.QueueConf) (*Partition, error) {
-	memoryQ := queue.NewMemoryQueue(queueCfg.MemoryQueueConf)
+	//memoryQ := queue.NewMemoryQueue(queueCfg.MemoryQueueConf)
 	diskQ, err := queue.NewDiskQueue(topicName + "__" + strconv.Itoa(id))
 	if err != nil {
 		return nil, err
 	}
-	queue := queue.NewQueue(memoryQ, diskQ)
+	queue := queue.NewQueue(nil, diskQ)
 	return &Partition{
 		id:         id,
 		topicName:  topicName,
