@@ -2,7 +2,6 @@ package yith
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"net"
@@ -159,7 +158,6 @@ func (s *Serve) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 	topic := req.FormValue("topic")
 	partitionIDstr := req.FormValue("partitionID")
-	fmt.Printf("topic is %s, partitionID is %s  \n", topic, partitionIDstr)
 	partitionID, err := strconv.Atoi(partitionIDstr)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -173,7 +171,6 @@ func (s *Serve) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte(string(err.Error())))
 		return
 	}
-	fmt.Printf("offset is %d \n", offset)
 	err = s.node.Consume(topic, partitionID, offset, w)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
