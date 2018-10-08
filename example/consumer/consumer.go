@@ -23,7 +23,7 @@ func main() {
 
 	resp, err := http.PostForm(consumerUrl, url.Values{
 		"topic":       []string{"yith"},
-		"partitionID": []string{"0"},
+		"partitionID": []string{"001"},
 		"offset":      []string{"1"},
 	})
 	//http.Get(consumerUrl)

@@ -21,7 +21,7 @@ func main() {
 		Topic:       "yith",
 		PartitionID: 001,
 		Msgs:        msgs,
-		MetaVersion: 1,
+		MetaVersion: 0,
 	}
 	byt, err := json.Marshal(messages)
 	if err != nil {

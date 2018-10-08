@@ -103,8 +103,11 @@ func (wq *WeightQueue) GetNode(topic meta.TopicMetadata) string {
 func (wq *WeightQueue) PopNodes(count int) []string {
 	wq.RLock()
 	defer wq.RUnlock()
+	nodes := make([]string, 0)
+	if count == 0 || len(wq.nodeWeights) == 0 {
+		return nodes
+	}
 	nws := wq.nodeWeights[:count]
-	nodes := make([]string, count)
 	for i, nw := range nws {
 		nodes[i] = nw.Node
 	}
