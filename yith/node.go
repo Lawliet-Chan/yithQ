@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"sync"
 	"yithQ/message"
-	"yithQ/yith/conf"
 )
 
 var TopicNotExist error = errors.New("topic not exist")
@@ -22,15 +21,19 @@ type TopicPartitionInfo struct {
 }
 
 func NewNode(ip string) *Node {
-	return &Node{
+	node := &Node{
 		IP:                ip,
 		topicPartition:    &sync.Map{},
 		partitionID2Topic: &sync.Map{},
 	}
+
+
+	
+	return node
 }
 
-func (n *Node) AddTopicPartition(topic string, partitionID int, isReplica bool, queueCfg *conf.QueueConf) error {
-	newPartition, err := NewPartition(partitionID, topic, isReplica, queueCfg)
+func (n *Node) AddTopicPartition(topic string, partitionID int, isReplica bool) error {
+	newPartition, err := NewPartition(partitionID, topic, isReplica)
 	if err != nil {
 		return err
 	}

@@ -19,9 +19,9 @@ type Partition struct {
 	isRepplica bool
 }
 
-func NewPartition(id int, topicName string, isReplica bool, queueCfg *conf.QueueConf) (*Partition, error) {
+func NewPartition(id int, topicName string, isReplica bool /* queueCfg *conf.QueueConf*/) (*Partition, error) {
 	//memoryQ := queue.NewMemoryQueue(queueCfg.MemoryQueueConf)
-	diskQ, err := queue.NewDiskQueue(topicName + "__" + strconv.Itoa(id))
+	diskQ, err := queue.NewDiskQueue(topicName + "-" + strconv.Itoa(id))
 	if err != nil {
 		return nil, err
 	}

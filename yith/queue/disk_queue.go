@@ -359,3 +359,59 @@ func dataFileSize(f *os.File) (int64, error) {
 	//realData := bytes.TrimRight(data, " ")
 	return int64(len(data[:i])), nil
 }
+
+type TopicInfo struct {
+	Topic       string
+	PartitionID int
+	Size        int64
+}
+
+func PickupTopicInfoFromDisk() ([]TopicInfo, error) {
+	fis, err := ioutil.ReadDir("./")
+	if err != nil {
+		return nil, err
+	}
+
+	topicInfoMap := make(map[string]int64)
+	for _, fi := range fis {
+		if fi.IsDir() {
+			continue
+		}
+		if strings.Contains(fi.Name(), ".data") {
+			file, err := os.Open(fi.Name())
+			if err != nil {
+				return nil, err
+			}
+			fileNameArr := strings.Split(strings.TrimSuffix(fi.Name(), ".data"), "_")
+			var topicPartition string
+			for _, finame := range fileNameArr[:len(fileNameArr)-1] {
+				topicPartition += finame
+			}
+			dataFileSize, err := dataFileSize(file)
+			if err != nil {
+				return nil, err
+			}
+			topicInfoMap[topicPartition] += dataFileSize
+		}
+	}
+
+	topicInfos := make([]TopicInfo, 0)
+
+	for topicPartition, size := range topicInfoMap {
+		tp := strings.Split(topicPartition, "-")
+		partitionID, err := strconv.Atoi(tp[len(tp)-1])
+		if err != nil {
+			return nil, err
+		}
+		var topic string
+		for _, t := range tp[:len(tp)-1] {
+			topic += t
+		}
+		topicInfos = append(topicInfos, TopicInfo{
+			Topic:       topic,
+			PartitionID: partitionID,
+			Size:        size,
+		})
+	}
+	return topicInfos, nil
+}
