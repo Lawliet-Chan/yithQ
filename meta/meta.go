@@ -94,6 +94,7 @@ func (m *Metadata) UpgradeVersion() {
 type TopicMetadata struct {
 	Topic          string `json:"topic"`
 	PartitionID    int    `json:"partition_id"`
+	Size           int64  `json:"size"`
 	IsReplica      bool   `json:"is_replica"`
 	ReplicaFactory int    `json:"replica_factory"`
 }

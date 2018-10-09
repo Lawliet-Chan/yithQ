@@ -51,6 +51,7 @@ func (z *Zero) ListenYith() {
 	r.HandleFunc(http.MethodPost, "/"+meta.TopicReplicaAddChangeStr, z.AddTopicReplica)
 	r.HandleFunc(http.MethodGet, "/"+meta.FetchMetadataStr, z.ForFetchMetadata)
 	r.HandleFunc(http.MethodPost, "/"+meta.TopicPartitionDeleteChangeStr, z.DeleteTopicPartition)
+	r.HandleFunc(http.MethodPost, "/"+meta.PickupStr, z.YithPickup)
 	http.ListenAndServe(z.cfg.ListenPort, r)
 
 }
@@ -121,6 +122,25 @@ func (z *Zero) ForFetchMetadata(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	w.Write(byt)
+}
+
+func (z *Zero) YithPickup(w http.ResponseWriter, req *http.Request) {
+	data, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		logger.Lg.Errorf("read yith(%s) pickup data error : %v", req.RemoteAddr, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	var topicMetadata []meta.TopicMetadata
+	json.Unmarshal(data, &topicMetadata)
+	if err != nil {
+		logger.Lg.Errorf("decode yith(%s) pickup data error : %v", req.RemoteAddr, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
 }
 
 func (z *Zero) ReceiveHeartbeat(w http.ResponseWriter, req *http.Request) {

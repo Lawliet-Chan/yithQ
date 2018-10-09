@@ -27,8 +27,6 @@ func NewNode(ip string) *Node {
 		partitionID2Topic: &sync.Map{},
 	}
 
-
-	
 	return node
 }
 

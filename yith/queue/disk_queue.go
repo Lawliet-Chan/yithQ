@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"yithQ/message"
+	"yithQ/meta"
 )
 
 type DiskQueue interface {
@@ -360,13 +361,7 @@ func dataFileSize(f *os.File) (int64, error) {
 	return int64(len(data[:i])), nil
 }
 
-type TopicInfo struct {
-	Topic       string
-	PartitionID int
-	Size        int64
-}
-
-func PickupTopicInfoFromDisk() ([]TopicInfo, error) {
+func PickupTopicInfoFromDisk() ([]meta.TopicMetadata, error) {
 	fis, err := ioutil.ReadDir("./")
 	if err != nil {
 		return nil, err
@@ -395,7 +390,7 @@ func PickupTopicInfoFromDisk() ([]TopicInfo, error) {
 		}
 	}
 
-	topicInfos := make([]TopicInfo, 0)
+	topicInfos := make([]meta.TopicMetadata, 0)
 
 	for topicPartition, size := range topicInfoMap {
 		tp := strings.Split(topicPartition, "-")
@@ -407,7 +402,7 @@ func PickupTopicInfoFromDisk() ([]TopicInfo, error) {
 		for _, t := range tp[:len(tp)-1] {
 			topic += t
 		}
-		topicInfos = append(topicInfos, TopicInfo{
+		topicInfos = append(topicInfos, meta.TopicMetadata{
 			Topic:       topic,
 			PartitionID: partitionID,
 			Size:        size,

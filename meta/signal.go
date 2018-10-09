@@ -10,6 +10,7 @@ const (
 	TopicReplicaAddChange
 	TopicPartitionDeleteChange
 	FetchMetadata
+	Pickup
 )
 
 var (
@@ -20,6 +21,7 @@ var (
 	TopicReplicaAddChangeStr      = "topic-replica-add-change"
 	TopicPartitionDeleteChangeStr = "topic-partition-delete-change"
 	FetchMetadataStr              = "fetch-metadata"
+	PickupStr                     = "pickup"
 )
 
 var SignalTypes = []string{
@@ -30,6 +32,7 @@ var SignalTypes = []string{
 	TopicReplicaAddChangeStr,
 	TopicPartitionDeleteChangeStr,
 	FetchMetadataStr,
+	PickupStr,
 }
 
 func (st Signal) String() string {
