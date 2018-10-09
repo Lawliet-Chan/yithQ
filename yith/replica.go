@@ -54,7 +54,7 @@ func (s *Serve) receiveReplicaFromOtherNodes(w http.ResponseWriter, req *http.Re
 		s.updateMetadata(metadata)
 		//更新本地metadata
 		partitionID := s.metadata.Load().(*meta.Metadata).FindPatitionID(msgs.Topic, s.node.IP, true)
-		err = s.node.AddTopicPartition(msgs.Topic, partitionID, true, s.cfg.QueueConf)
+		err = s.node.AddTopicPartition(msgs.Topic, partitionID, true)
 		if err != nil {
 			Lg.Errorf("yith_broker(%s) replicate msgs to topic(%s) [ADD new topic partition] error : %v", req.RemoteAddr, msgs.Topic, err)
 			w.WriteHeader(http.StatusInternalServerError)

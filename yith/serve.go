@@ -66,6 +66,7 @@ func (s *Serve) Run() {
 	}
 	s.updateMetadata(metadata)
 	go func() {
+		Lg.Info("client for [produce] listen port ", s.cfg.ProducerPort)
 		r := router.NewRouter()
 		r.HandleFunc(http.MethodPost, "/produce", s.ReceiveMsgFromProducers)
 		r.HandleFunc(http.MethodPost, "/replica", s.receiveReplicaFromOtherNodes)
@@ -73,6 +74,7 @@ func (s *Serve) Run() {
 	}()
 
 	go func() {
+		Lg.Info("client for [consume] listen port ", s.cfg.ConsumerPort)
 		r := router.NewRouter()
 		r.HandleFunc(http.MethodPost, "/consume", s.SendMsgToConsumers)
 		http.ListenAndServe(s.cfg.ConsumerPort, r)
@@ -121,7 +123,7 @@ func (s *Serve) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request
 	}
 
 	if !s.node.ExistTopicPartition(msgs.Topic, msgs.PartitionID) {
-		err = s.node.AddTopicPartition(msgs.Topic, msgs.PartitionID, false, s.cfg.QueueConf)
+		err = s.node.AddTopicPartition(msgs.Topic, msgs.PartitionID, false)
 		if err != nil {
 			Lg.Errorf("producer(%s) produce msgs to topic(%s) [CREATE new topic partition] error : %v", req.RemoteAddr, msgs.Topic, err)
 			w.WriteHeader(http.StatusInternalServerError)

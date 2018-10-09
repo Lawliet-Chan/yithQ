@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 	"yithQ/message"
-	"yithQ/yith/conf"
 	"yithQ/yith/queue"
 )
 
