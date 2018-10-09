@@ -14,6 +14,7 @@ import (
 	. "yithQ/util/logger"
 	"yithQ/util/router"
 	"yithQ/yith/conf"
+	"yithQ/yith/queue"
 )
 
 type Serve struct {
@@ -32,10 +33,23 @@ func NewServe(cfg *conf.Config) *Serve {
 	if err != nil {
 		panic(err)
 	}
+
+	topicMetadata, err := queue.PickupTopicInfoFromDisk()
+	if err != nil {
+		Lg.Fatalf("pick up topic info from disk error : %v", err)
+	}
+	tps, err := watcher.Pickup(topicMetadata)
+	if err != nil {
+		Lg.Fatalf("pick up for connecting to zero error : %v", err)
+	}
+	node := NewNode(ip)
+	for _, tp := range tps {
+		node.AddTopicPartition(tp.Topic, tp.PartitionID, tp.IsReplica)
+	}
 	s := &Serve{
 		cfg:      cfg,
 		metadata: &atomic.Value{},
-		node:     NewNode(ip),
+		node:     node,
 		watcher:  watcher,
 	}
 

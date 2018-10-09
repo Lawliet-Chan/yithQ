@@ -21,13 +21,11 @@ type TopicPartitionInfo struct {
 }
 
 func NewNode(ip string) *Node {
-	node := &Node{
+	return &Node{
 		IP:                ip,
 		topicPartition:    &sync.Map{},
 		partitionID2Topic: &sync.Map{},
 	}
-
-	return node
 }
 
 func (n *Node) AddTopicPartition(topic string, partitionID int, isReplica bool) error {

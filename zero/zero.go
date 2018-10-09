@@ -132,7 +132,7 @@ func (z *Zero) YithPickup(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
-	var topicMetadata []meta.TopicMetadata
+	var topicMetadata []*meta.TopicMetadata
 	json.Unmarshal(data, &topicMetadata)
 	if err != nil {
 		logger.Lg.Errorf("decode yith(%s) pickup data error : %v", req.RemoteAddr, err)
@@ -141,6 +141,23 @@ func (z *Zero) YithPickup(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	for _, tm := range topicMetadata {
+		for t, _ := range z.weightQueue.TopicNode() {
+			if tm.Topic == t.Topic && tm.PartitionID == t.PartitionID {
+				tm.IsReplica = t.IsReplica
+			}
+		}
+	}
+
+	byt, err := json.Marshal(topicMetadata)
+	if err != nil {
+		logger.Lg.Errorf("encode yith(%s) pickup data error : %v", req.RemoteAddr, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	w.Write(byt)
 }
 
 func (z *Zero) ReceiveHeartbeat(w http.ResponseWriter, req *http.Request) {

@@ -123,3 +123,24 @@ func (w *Watcher) FetchMetadata() (*meta.Metadata, error) {
 	}
 	return metadata, nil
 }
+
+func (w *Watcher) Pickup(tm []meta.TopicMetadata) ([]meta.TopicMetadata, error) {
+	data, err := json.Marshal(tm)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.Post(w.zero+"/"+meta.PickupStr, "application/json", bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+	data, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var results []meta.TopicMetadata
+	err = json.Unmarshal(data, &results)
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
