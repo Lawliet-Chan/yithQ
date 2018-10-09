@@ -1,11 +1,14 @@
 package yith
 
 import (
+	"github.com/pkg/errors"
 	"net/http"
 	"sync"
 	"yithQ/message"
 	"yithQ/yith/conf"
 )
+
+var TopicNotExist error = errors.New("topic not exist")
 
 type Node struct {
 	IP                string
@@ -59,10 +62,13 @@ func (n *Node) ProduceTopicPartition(topic string, partitionID int, msgs []*mess
 }
 
 func (n *Node) Consume(topic string, partitionID int, popOffset int64, writer http.ResponseWriter) error {
-	partition, _ := n.topicPartition.Load(TopicPartitionInfo{
+	partition, ok := n.topicPartition.Load(TopicPartitionInfo{
 		Topic:       topic,
 		PartitionID: partitionID,
 	})
+	if !ok {
+		return TopicNotExist
+	}
 	return partition.(*Partition).Consume(popOffset, writer)
 }
 
