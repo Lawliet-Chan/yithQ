@@ -134,7 +134,7 @@ func (dq *diskQueue) PopFromDisk(msgOffset int64) ([]byte, error) {
 		dq.readingFile = findReadingFileByOffset(dq.storeFiles.Load().([]*DiskFile), msgOffset)
 	}
 
-	data, err := dq.readingFile.read(msgOffset, 20)
+	data, err := dq.readingFile.read(msgOffset, 256)
 	if err != nil {
 		if err == io.EOF && msgOffset <= dq.getLastOffset() {
 			dq.readingFile = nil
@@ -154,9 +154,7 @@ func (dq *diskQueue) UpLastOffset(delta int64) int64 {
 }
 
 func findReadingFileByOffset(files []*DiskFile, msgOffset int64) *DiskFile {
-	//fmt.Printf("files length is %d, msg offset is %d   ", len(files), msgOffset)
 	midStoreFile := files[len(files)/2]
-	//fmt.Printf("startOffset is %d, endOffset is %d", midStoreFile.getStartOffset(), midStoreFile.getEndOffset())
 	if midStoreFile.getStartOffset() <= msgOffset && midStoreFile.getEndOffset() >= msgOffset {
 		return midStoreFile
 	} else if midStoreFile.getStartOffset() > msgOffset {
@@ -228,7 +226,6 @@ func newDiskFile(name string, seq int, isFull bool) (*DiskFile, error) {
 	}, nil
 }
 
-//TODO: will use mmap() to store data into file next version.
 //write batch
 //batchStartOffset=lastOffset+1
 func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int, error) {
