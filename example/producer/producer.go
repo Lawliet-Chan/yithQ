@@ -4,16 +4,18 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"yithQ/message"
 )
+
+var msgStr = `放置策略： 
+　放置策略决定一个进程块驻留在实存中的什么地方。在一个纯粹的分段系统中，比如最佳适配，以及首次适配等都是可供选择的，但对于一个纯粹的分页系统或者段页式系统来说，如何放置其实没有关系，这是因为地址转换硬件和内存访问硬件可以以相同的效率为任何页框组合执行它们的功能。`
 
 func main() {
 	producerUrl := "http://localhost:9970/produce"
 	msgs := make([]*message.Message, 0)
-	for i := 0; i <= 255; i++ {
+	for i := 0; i <= 50; i++ {
 		msg := &message.Message{
-			Body: []byte(strconv.Itoa(i)),
+			Body: []byte(msgStr),
 		}
 		msgs = append(msgs, msg)
 	}

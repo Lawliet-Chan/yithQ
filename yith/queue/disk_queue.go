@@ -237,7 +237,7 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 		return -1, err
 	}
 
-	err = madvise(dataRef, syscall.MADV_RANDOM)
+	err = madvise(dataRef, syscall.MADV_SEQUENTIAL)
 	if err != nil {
 		return -1, err
 	}
@@ -315,7 +315,7 @@ func (df *DiskFile) read(msgOffset int64, batchCount int) ([]byte, error) {
 		return nil, err
 	}
 
-	err = madvise(dataRef, syscall.MADV_RANDOM)
+	err = madvise(dataRef, syscall.MADV_SEQUENTIAL)
 	if err != nil {
 		return nil, err
 	}
