@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"syscall"
+	"unsafe"
 	"yithQ/message"
 	"yithQ/meta"
 )
@@ -239,6 +240,11 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 		return -1, err
 	}
 
+	err = madvise(dataRef, syscall.MADV_RANDOM)
+	if err != nil {
+		return -1, err
+	}
+
 	var cursor int64 = 0
 	for i, msg := range msgs {
 		byt, err := json.Marshal(msg)
@@ -307,7 +313,18 @@ func (df *DiskFile) read(msgOffset int64, batchCount int) ([]byte, error) {
 		endOffset = atomic.LoadInt64(&df.size)
 	}
 
-	return syscall.Mmap(int(df.dataFile.Fd()), startOffset, int(endOffset-startOffset-1), syscall.PROT_READ, syscall.MAP_PRIVATE)
+	dataRef, err := syscall.Mmap(int(df.dataFile.Fd()), startOffset, int(endOffset-startOffset-1), syscall.PROT_READ, syscall.MAP_PRIVATE)
+	if err != nil {
+		return nil, err
+	}
+
+	err = madvise(dataRef, syscall.MADV_RANDOM)
+	if err != nil {
+		return nil, err
+	}
+
+	return dataRef, nil
+
 }
 
 func (df *DiskFile) getDatafilePosition(positionInIndexFile int64) (offset int64, err error) {
@@ -409,4 +426,12 @@ func PickupTopicInfoFromDisk() ([]meta.TopicMetadata, error) {
 		})
 	}
 	return topicInfos, nil
+}
+
+func madvise(b []byte, advice int) (err error) {
+	_, _, e1 := syscall.Syscall(syscall.SYS_MADVISE, uintptr(unsafe.Pointer(&b[0])), uintptr(len(b)), uintptr(advice))
+	if e1 != 0 {
+		err = e1
+	}
+	return
 }

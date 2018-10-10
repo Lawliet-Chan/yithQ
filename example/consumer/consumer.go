@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"time"
 	"yithQ/message"
 )
 
@@ -21,6 +22,7 @@ func main() {
 	//cli := http.Client{}
 	//resp, err := cli.Do(req)
 
+	start := time.Now()
 	resp, err := http.PostForm(consumerUrl, url.Values{
 		"topic":       []string{"yith"},
 		"partitionID": []string{"001"},
@@ -30,17 +32,18 @@ func main() {
 	if err != nil {
 		panic("post consumerUrl error : " + err.Error())
 	}
+	//fmt.Println("post bench is ",time.Since(start).Seconds())
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		panic("read consumer http response error : " + err.Error())
 	}
-	fmt.Println("data is ", string(data))
+	//fmt.Println("data is ", string(data))
 	var msgs []*message.Message
 	err = json.Unmarshal([]byte("["+string(data)+"]"), &msgs)
 	if err != nil {
 		panic("json unmarshal msgs by consume from yith error : " + err.Error())
 	}
-	fmt.Println("msgs are ", msgs)
+	fmt.Println("consume bench is ", time.Since(start).Seconds())
 	for _, msg := range msgs {
 		fmt.Println("msg body is : " + string(msg.Body))
 	}

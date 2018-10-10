@@ -11,7 +11,7 @@ import (
 func main() {
 	producerUrl := "http://localhost:9970/produce"
 	msgs := make([]*message.Message, 0)
-	for i := 0; i <= 10; i++ {
+	for i := 0; i <= 3; i++ {
 		msg := &message.Message{
 			Body: []byte(strconv.Itoa(i)),
 		}
