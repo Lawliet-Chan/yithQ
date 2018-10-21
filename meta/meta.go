@@ -72,10 +72,34 @@ func (m *Metadata) FindReplicaNodes(topic string) []string {
 	return nodes
 }
 
+func (m *Metadata) FindTopicAllPartitions(topic string) map[string][]TopicMetadata {
+	nodeTopics := make(map[string][]TopicMetadata)
+	m.TopicNodeMap.Range(func(tmi, node interface{}) bool {
+		tm := tmi.(TopicMetadata)
+		if tm.Topic == topic && !tm.IsReplica {
+			nodeTopics[node.(string)] = append(nodeTopics[node.(string)], tm)
+		}
+		return true
+	})
+	return nodeTopics
+}
+
 func (m *Metadata) FindPatitionID(topic, nodeIP string, isReplica bool) (parititionID int) {
 	m.TopicNodeMap.Range(func(tm, node interface{}) bool {
 		if tm.(TopicMetadata).Topic == topic && node.(string) == nodeIP && isReplica == tm.(TopicMetadata).IsReplica {
 			parititionID = tm.(TopicMetadata).PartitionID
+			return false
+		}
+		return true
+	})
+	return
+}
+
+func (m *Metadata) FindNodeWithTopicPartition(topic string, partitionID int, isReplica bool) (node string) {
+	m.TopicNodeMap.Range(func(tmi, nodei interface{}) bool {
+		tm := tmi.(TopicMetadata)
+		if tm.Topic == topic && tm.PartitionID == partitionID && tm.IsReplica == isReplica {
+			node = nodei.(string)
 			return false
 		}
 		return true

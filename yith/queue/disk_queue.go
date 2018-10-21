@@ -166,6 +166,8 @@ func findReadingFileByOffset(files []*DiskFile, msgOffset int64) *DiskFile {
 const DiskFileSizeLimit = 1024 * 1024 * 1024
 const EachIndexLen = 39
 
+var pagesize int64 = int64(syscall.Getpagesize())
+
 var ErrMsgTooLarge error = errors.New("message too large")
 var ErrNoneMsg error = errors.New("none message")
 
