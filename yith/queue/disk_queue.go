@@ -234,7 +234,9 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 
 	dataFileSize := atomic.LoadInt64(&df.size)
 
-	dataRef, err := syscall.Mmap(int(df.dataFile.Fd()), dataFileSize, int(DiskFileSizeLimit-dataFileSize), syscall.PROT_WRITE|syscall.PROT_READ, syscall.MAP_SHARED)
+	pageOffset := dataFileSize % pagesize
+
+	dataRef, err := syscall.Mmap(int(df.dataFile.Fd()), dataFileSize-pageOffset, int(DiskFileSizeLimit-dataFileSize+pageOffset), syscall.PROT_WRITE|syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		return -1, err
 	}
@@ -265,7 +267,7 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 		//buf.Write(byt)
 		//buf.Write([]byte(`,`))
 		//fmt.Println("bytes is ", string(buf.Bytes()))
-		copy(dataRef[cursor:], byt)
+		copy(dataRef[cursor+pageOffset:], byt)
 
 		_, err = df.indexFile.Write(encodeIndex(batchStartOffset+int64(i), dataFileSize+cursor))
 		if err != nil {
