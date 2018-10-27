@@ -3,18 +3,21 @@ package consumer
 import (
 	"sync/atomic"
 	"yithQ/message"
+	"yithQ/meta"
 )
 
 type Consumer struct {
 	brokersAddress []string
 	zeroAddress    string
 	offset         int64
+	metadata       *meta.Metadata
 }
 
 func NewConsumer(brokersAddress []string, zeroAddress string) *Consumer {
 	return &Consumer{
 		brokersAddress: brokersAddress,
 		zeroAddress:    zeroAddress,
+		offset:         1,
 	}
 }
 
