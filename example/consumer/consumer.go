@@ -27,6 +27,7 @@ func main() {
 		"topic":       []string{"yith"},
 		"partitionID": []string{"001"},
 		"offset":      []string{"1"},
+		"version":     []string{"0"},
 	})
 	//http.Get(consumerUrl)
 	if err != nil {

@@ -187,6 +187,18 @@ func (s *Serve) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte(string(err.Error())))
 		return
 	}
+	metaVersionStr := req.FormValue("version")
+	metaVersion, err := strconv.ParseUint(metaVersionStr, 10, 32)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(string(err.Error())))
+		return
+	}
+	if !s.checkeMetadataVersion(uint32(metaVersion)) {
+		//返回客户端，metadata已经改变
+		w.WriteHeader(http.StatusMovedPermanently)
+		return
+	}
 	err = s.node.Consume(topic, partitionID, offset, w)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
