@@ -13,7 +13,7 @@ import (
 
 type Consumer struct {
 	sync.RWMutex
-	brokersAddress []string
+	//brokersAddress []string
 	zeroAddress    string
 	topicOffset    map[string]int64 // key is topic_partitionID, ep:  yith_100
 	metadata       *meta.Metadata
@@ -22,9 +22,8 @@ type Consumer struct {
 	consumeError chan error
 }
 
-func NewConsumer(brokersAddress []string, zeroAddress string) *Consumer {
+func NewConsumer(zeroAddress string) *Consumer {
 	return &Consumer{
-		brokersAddress: brokersAddress,
 		zeroAddress:    zeroAddress,
 		//offset is the last consumed index
 		topicOffset: make(map[string]int64),
