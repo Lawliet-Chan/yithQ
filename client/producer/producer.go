@@ -44,6 +44,7 @@ func NewProducerWithSendLimit(brokersAddress []string, zeroAddress string, timeS
 		sendingQueueMap: &sync.Map{},
 		countCounter:    0,
 		errorSend:       make(chan error, countSendLimit),
+		metadata:        meta.NewMetadata(),
 	}
 	go func() {
 		for {
@@ -100,6 +101,21 @@ func (p *Producer) sendToBrokers(topic string, msgs []*message.Message) {
 	for node, topicmetas := range nodeTopics {
 		for _, topicmeta := range topicmetas {
 			byt, err := p.makeMessagesByte(topic, msgs, topicmeta.PartitionID)
+			if err != nil {
+				p.errorSend <- err
+				return
+			}
+			err = p.sendToBroker(node, byt)
+			if err != nil {
+				p.errorSend <- err
+			}
+		}
+	}
+
+	if len(nodeTopics) == 0 {
+		nodes := p.metadata.GetAllNodes()
+		for i, node := range nodes {
+			byt, err := p.makeMessagesByte(topic, msgs, i)
 			if err != nil {
 				p.errorSend <- err
 				return

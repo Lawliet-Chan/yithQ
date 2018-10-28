@@ -60,6 +60,15 @@ func (m *Metadata) RemoveTopic(node string, metadata TopicMetadata) {
 	m.TopicNodeMap.Delete(metadata)
 }
 
+func (m *Metadata) GetAllNodes() []string {
+	nodes := make([]string, 0)
+	m.TopicNodeMap.Range(func(tmi, node interface{}) bool {
+		nodes = append(nodes, node.(string))
+		return true
+	})
+	return nodes
+}
+
 func (m *Metadata) FindReplicaNodes(topic string) []string {
 	nodes := make([]string, 0)
 	m.TopicNodeMap.Range(func(tmi, node interface{}) bool {
