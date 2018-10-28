@@ -14,9 +14,9 @@ import (
 type Consumer struct {
 	sync.RWMutex
 	//brokersAddress []string
-	zeroAddress    string
-	topicOffset    map[string]int64 // key is topic_partitionID, ep:  yith_100
-	metadata       *meta.Metadata
+	zeroAddress string
+	topicOffset map[string]int64 // key is topic_partitionID, ep:  yith_100
+	metadata    *meta.Metadata
 
 	incomingMsgs chan *message.Message
 	consumeError chan error
@@ -24,7 +24,7 @@ type Consumer struct {
 
 func NewConsumer(zeroAddress string) *Consumer {
 	return &Consumer{
-		zeroAddress:    zeroAddress,
+		zeroAddress: zeroAddress,
 		//offset is the last consumed index
 		topicOffset: make(map[string]int64),
 
@@ -48,6 +48,7 @@ func (c *Consumer) Consume(topic string) (<-chan *message.Message, <-chan error)
 				for _, msg := range msgs {
 					c.incomingMsgs <- msg
 				}
+				c.addOffset(topic, partitionID, int64(len(msgs))-1)
 			}
 		}(node, topicmetas)
 	}
