@@ -8,6 +8,7 @@ import (
 )
 
 type Metadata struct {
+	sync.Mutex
 	TopicNodeMap *sync.Map // map[TopicMetadata]NodeIP
 	Version      uint32
 }
@@ -66,12 +67,12 @@ func (m *Metadata) FindReplicaNodes(topic string) []string {
 		if tm.Topic == topic && tm.IsReplica {
 			nodes = append(nodes, node.(string))
 		}
-
 		return true
 	})
 	return nodes
 }
 
+//map[string]TopicMetadata   key is node
 func (m *Metadata) FindTopicAllPartitions(topic string) map[string][]TopicMetadata {
 	nodeTopics := make(map[string][]TopicMetadata)
 	m.TopicNodeMap.Range(func(tmi, node interface{}) bool {
@@ -95,7 +96,7 @@ func (m *Metadata) FindPatitionID(topic, nodeIP string, isReplica bool) (paritit
 	return
 }
 
-func (m *Metadata) FindNodeWithTopicPartition(topic string, partitionID int, isReplica bool) (node string) {
+func (m *Metadata) FindNodeWithTopicPartitionID(topic string, partitionID int, isReplica bool) (node string) {
 	m.TopicNodeMap.Range(func(tmi, nodei interface{}) bool {
 		tm := tmi.(TopicMetadata)
 		if tm.Topic == topic && tm.PartitionID == partitionID && tm.IsReplica == isReplica {
@@ -113,6 +114,12 @@ func (m *Metadata) GetVersion() uint32 {
 
 func (m *Metadata) UpgradeVersion() {
 	atomic.AddUint32(&m.Version, 1)
+}
+
+func (m *Metadata) SetMetadata(md *Metadata) {
+	m.Lock()
+	m = md
+	m.Unlock()
 }
 
 type TopicMetadata struct {

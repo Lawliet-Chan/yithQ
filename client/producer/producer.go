@@ -134,7 +134,7 @@ func (p *Producer) sendToBroker(node string, msgsByt []byte) error {
 		if err != nil {
 			return err
 		}
-		p.metadata = metadata
+		p.metadata.SetMetadata(metadata)
 		return p.sendToBroker(node, msgsByt)
 	}
 	return nil
