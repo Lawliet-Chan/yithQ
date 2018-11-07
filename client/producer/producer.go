@@ -13,9 +13,8 @@ import (
 )
 
 type Producer struct {
-	brokersAddress []string
-	zeroAddress    string
-	metadata       *meta.Metadata
+	zeroAddress string
+	metadata    *meta.Metadata
 
 	timeSendLimit  time.Duration
 	countSendLimit int32
@@ -30,13 +29,12 @@ type Producer struct {
 	sendingQueueMap *sync.Map //map[string][]*message.Message
 }
 
-func NewProducer(brokersAddress []string, zeroAddress string) *Producer {
-	return NewProducerWithSendLimit(brokersAddress, zeroAddress, 2*time.Millisecond, 1024)
+func NewProducer(zeroAddress string) *Producer {
+	return NewProducerWithSendLimit(zeroAddress, 2*time.Millisecond, 1024)
 }
 
-func NewProducerWithSendLimit(brokersAddress []string, zeroAddress string, timeSendLimit time.Duration, countSendLimit int32) *Producer {
+func NewProducerWithSendLimit(zeroAddress string, timeSendLimit time.Duration, countSendLimit int32) *Producer {
 	p := &Producer{
-		brokersAddress:  brokersAddress,
 		zeroAddress:     zeroAddress,
 		timeSendLimit:   timeSendLimit,
 		countSendLimit:  countSendLimit,
@@ -84,7 +82,7 @@ func (p *Producer) prepareForSend(topic string, msgByts ...[]byte) {
 	}
 	p.sendingQueueMap.Store(topic, append(msgq.([]*message.Message), msgs...))
 	go func() {
-		p.CountingMsg()
+		p.countingMsg()
 		p.resetTimeCounter()
 	}()
 }
@@ -173,7 +171,7 @@ func (p *Producer) obtainMetaFromZero() (*meta.Metadata, error) {
 	return metadata, nil
 }
 
-func (p *Producer) CountingMsg() {
+func (p *Producer) countingMsg() {
 	if p.getCountCounter() >= p.countSendLimit {
 		p.nortifySend <- struct{}{}
 		p.resetCountCounter()

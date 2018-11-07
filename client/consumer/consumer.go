@@ -12,7 +12,7 @@ import (
 )
 
 type Consumer struct {
-	sync.RWMutex
+	rw sync.RWMutex
 	//brokersAddress []string
 	zeroAddress string
 	topicOffset map[string]int64 // key is topic_partitionID, ep:  yith_100
@@ -74,21 +74,21 @@ func (c *Consumer) ConsumePartitionWithOffset(topic string, partitionID int, off
 }
 
 func (c *Consumer) Offset(topic string, partitionID int) int64 {
-	c.RLock()
-	defer c.RUnlock()
+	c.rw.RLock()
+	defer c.rw.RUnlock()
 	offset, _ := c.topicOffset[topic+"_"+strconv.Itoa(partitionID)]
 	return offset
 }
 
 func (c *Consumer) setOffset(topic string, partitionID int, offset int64) {
-	c.Lock()
-	defer c.Unlock()
+	c.rw.Lock()
+	defer c.rw.Unlock()
 	c.topicOffset[topic+"_"+strconv.Itoa(partitionID)] = offset
 }
 
 func (c *Consumer) addOffset(topic string, partitionID int, deltaOffset int64) {
-	c.Lock()
-	defer c.Unlock()
+	c.rw.Lock()
+	defer c.rw.Unlock()
 	c.topicOffset[topic+"_"+strconv.Itoa(partitionID)] += deltaOffset
 }
 
