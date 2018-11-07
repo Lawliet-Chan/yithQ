@@ -16,128 +16,80 @@ type Producer struct {
 	zeroAddress string
 	metadata    *meta.Metadata
 
-	timeSendLimit  time.Duration
-	countSendLimit int32
+	//	timeSendLimit  time.Duration
+	//	countSendLimit int32
 
-	timeCounter  *time.Timer
-	countCounter int32
+	//	timeCounter  *time.Timer
+	//	countCounter int32
 
-	nortifySend chan struct{}
+	//	nortifySend chan struct{}
 
-	errorSend chan error
+	//	errorSend chan error
 
-	sendingQueueMap *sync.Map //map[string][]*message.Message
+	//	sendingQueueMap *sync.Map //map[string][]*message.Message
 }
 
 func NewProducer(zeroAddress string) *Producer {
-	return NewProducerWithSendLimit(zeroAddress, 2*time.Millisecond, 1024)
+	return &Producer{
+		zeroAddress: zeroAddress,
+		metadata:    meta.NewMetadata(),
+	}
 }
 
-func NewProducerWithSendLimit(zeroAddress string, timeSendLimit time.Duration, countSendLimit int32) *Producer {
-	p := &Producer{
-		zeroAddress:     zeroAddress,
-		timeSendLimit:   timeSendLimit,
-		countSendLimit:  countSendLimit,
-		nortifySend:     make(chan struct{}),
-		sendingQueueMap: &sync.Map{},
-		timeCounter:     time.NewTimer(timeSendLimit),
-		countCounter:    0,
-		errorSend:       make(chan error, countSendLimit),
-		metadata:        meta.NewMetadata(),
-	}
-	go func() {
-		for {
-			select {
-			case <-p.nortifySend:
-				p.send()
-			case <-p.timeCounter.C:
-				p.send()
-			}
-			p.resetCountCounter()
-			p.resetTimeCounter()
+func (p *Producer) Publish(topic string, msg []byte) <-chan error {
+	errChan := make(chan error)
+	p.send(topic, [][]byte{msg}, errChan)
+	return errChan
+}
+
+func (p *Producer) MultiPublish(topic string, msgs [][]byte) <-chan error {
+	errChan := make(chan error)
+	p.send(topic, msgs, errChan)
+	return errChan
+}
+
+func (p *Producer) PublishPartition(topic string, partitionID int, msg []byte) error {
+	return p.sendPartition(topic, partitionID, [][]byte{msg})
+}
+
+func (p *Producer) MultiPublishPartition(topic string, partitionID int, msgs [][]byte) error {
+	return p.sendPartition(topic, partitionID, msgs)
+}
+
+func (p *Producer) send(topic string, msgsByt [][]byte, errChan chan<- error) {
+	nodeTopicMetas := p.metadata.FindTopicAllPartitions(topic)
+	for node, tms := range nodeTopicMetas {
+		for _, topicmeta := range tms {
+			go func(topicmeta meta.TopicMetadata) {
+				byt, err := p.makeMessagesByte(topic, msgsByt, topicmeta.PartitionID)
+				if err != nil {
+					errChan <- err
+				}
+				err = p.sendToBroker(node, byt)
+				if err != nil {
+					errChan <- err
+				}
+			}(topicmeta)
 		}
-	}()
-	return p
-}
 
-func (p *Producer) Publish(topic string, msg []byte) {
-	p.prepareForSend(topic, msg)
-}
-
-func (p *Producer) MultiPublish(topic string, msgs [][]byte) {
-	p.prepareForSend(topic, msgs...)
-}
-
-func (p *Producer) prepareForSend(topic string, msgByts ...[]byte) {
-	msgq, ok := p.sendingQueueMap.Load(topic)
-	if !ok {
-		msgq = make([]*message.Message, 0)
-		p.sendingQueueMap.Store(topic, msgq)
 	}
-	msgs := make([]*message.Message, 0)
-	for _, msgByt := range msgByts {
-		msgs = append(msgs, &message.Message{
-			Body:    msgByt,
-			IsRetry: false,
-			//SeqNum:
-		})
-	}
-	p.sendingQueueMap.Store(topic, append(msgq.([]*message.Message), msgs...))
-	go func() {
-		p.countingMsg()
-		p.resetTimeCounter()
-	}()
-}
-
-func (p *Producer) send() {
-	p.sendingQueueMap.Range(func(topicI, msgsI interface{}) bool {
-		go p.sendToBrokers(topicI.(string), msgsI.([]*message.Message))
-		return true
-	})
-}
-
-func (p *Producer) sendToBrokers(topic string, msgs []*message.Message) {
-	nodeTopics := p.metadata.FindTopicAllPartitions(topic)
-	for node, topicmetas := range nodeTopics {
-		for _, topicmeta := range topicmetas {
-			byt, err := p.makeMessagesByte(topic, msgs, topicmeta.PartitionID)
-			if err != nil {
-				p.errorSend <- err
-				return
-			}
-			err = p.sendToBroker(node, byt)
-			if err != nil {
-				p.errorSend <- err
-			}
-		}
-	}
-
-	if len(nodeTopics) == 0 {
+	if len(nodeTopicMetas) == 0 {
 		nodes := p.metadata.GetAllNodes()
-		for i, node := range nodes {
-			byt, err := p.makeMessagesByte(topic, msgs, i)
-			if err != nil {
-				p.errorSend <- err
-				return
-			}
-			err = p.sendToBroker(node, byt)
-			if err != nil {
-				p.errorSend <- err
-			}
-		}
+
 	}
 }
 
-/*
-func (p *Producer) sendToBrokersWithPartition(topic string, partitionID int, msgs []*message.Message) error {
-	node := p.metadata.FindNodeWithTopicPartition(topic, partitionID, false)
-	byt,err:=p.makeMessagesByte(topic,msgs,partitionID)
+func (p *Producer) sendPartition(topic string, partitionID int, msgsByt [][]byte) error {
+	byt, err := p.makeMessagesByte(topic, msgsByt, partitionID)
 	if err != nil {
-		p.errorSend<-err
-		return
+		return err
 	}
-
-}*/
+	node := p.metadata.FindNodeWithTopicPartitionID(topic, partitionID, false)
+	if node == "" {
+		node = p.metadata.GetAllNodes()[0]
+	}
+	return p.sendToBroker(node, byt)
+}
 
 func (p *Producer) sendToBroker(node string, msgsByt []byte) error {
 	resp, err := http.Post(node, "application/json", bytes.NewBuffer(msgsByt))
@@ -173,36 +125,15 @@ func (p *Producer) obtainMetaFromZero() (*meta.Metadata, error) {
 	return metadata, nil
 }
 
-func (p *Producer) countingMsg() {
-	if p.getCountCounter() >= p.countSendLimit {
-		p.nortifySend <- struct{}{}
-		p.resetCountCounter()
-	} else {
-		p.addCountCounter()
+func (p *Producer) makeMessagesByte(topic string, msgsByt [][]byte, partitionID int) ([]byte, error) {
+	msgs := make([]*message.Message, 0)
+	for _, msgByt := range msgsByt {
+		msgs = append(msgs, &message.Message{
+			Body:    msgByt,
+			IsRetry: false,
+			//SeqNum:
+		})
 	}
-}
-
-func (p *Producer) resetCountCounter() {
-	atomic.StoreInt32(&p.countCounter, 0)
-}
-
-func (p *Producer) getCountCounter() int32 {
-	return atomic.LoadInt32(&p.countCounter)
-}
-
-func (p *Producer) addCountCounter() {
-	atomic.AddInt32(&p.countCounter, 1)
-}
-
-func (p *Producer) resetTimeCounter() {
-	p.timeCounter.Reset(p.timeSendLimit)
-}
-
-func (p *Producer) GetSendErrors() <-chan error {
-	return p.errorSend
-}
-
-func (p *Producer) makeMessagesByte(topic string, msgs []*message.Message, partitionID int) ([]byte, error) {
 	messages := &message.Messages{
 		Topic:       topic,
 		Msgs:        msgs,
