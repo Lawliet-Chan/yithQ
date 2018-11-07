@@ -27,8 +27,6 @@ func NewConsumer(zeroAddress string) *Consumer {
 		//offset is the last consumed index
 		topicOffset: make(map[string]int64),
 		metadata:    meta.NewMetadata(),
-		//incomingMsgs: make(chan *message.Message, 1024),
-		//consumeError: make(chan error),
 	}
 }
 
