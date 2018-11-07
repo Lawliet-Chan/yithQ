@@ -223,18 +223,6 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 
 	dataFileSize := atomic.LoadInt64(&df.size)
 
-	/*pageOffset := dataFileSize % pagesize
-
-	dataRef, err := syscall.Mmap(int(df.dataFile.Fd()), dataFileSize-pageOffset, int(DiskFileSizeLimit-dataFileSize+pageOffset), syscall.PROT_WRITE|syscall.PROT_READ, syscall.MAP_SHARED)
-	if err != nil {
-		return -1, err
-	}
-
-	err = madvise(dataRef, syscall.MADV_SEQUENTIAL)
-	if err != nil {
-		return -1, err
-	}*/
-
 	var cursor int64 = 0
 	for i, msg := range msgs {
 		byt, err := json.Marshal(msg)
