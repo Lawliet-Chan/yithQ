@@ -4,17 +4,18 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"yithQ/message"
 )
 
-var msgStr = `qwertyuiop  asdfghjklzxcvbnm1234567890[]-=`
+var msgStr = `the great race of Yith can be through space and time :`
 
 func main() {
 	producerUrl := "http://localhost:9970/produce"
 	msgs := make([]*message.Message, 0)
-	for i := 0; i <= 10; i++ {
+	for i := 0; i < 1<<12; i++ {
 		msg := &message.Message{
-			Body: []byte(msgStr),
+			Body: []byte(msgStr + strconv.Itoa(i)),
 		}
 		msgs = append(msgs, msg)
 	}

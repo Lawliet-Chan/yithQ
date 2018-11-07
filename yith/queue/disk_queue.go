@@ -18,7 +18,7 @@ import (
 
 type DiskQueue interface {
 	FillToDisk(msg []*message.Message) error
-	PopFromDisk(popOffset int64) ([]byte, error)
+	PopFromDisk(popOffset int64, count int) ([]byte, error)
 }
 
 type diskQueue struct {
@@ -123,7 +123,7 @@ func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
 	return nil
 }
 
-func (dq *diskQueue) PopFromDisk(msgOffset int64) ([]byte, error) {
+func (dq *diskQueue) PopFromDisk(msgOffset int64, count int) ([]byte, error) {
 	if len(dq.storeFiles.Load().([]*DiskFile)) == 0 || dq.getLastOffset() == 0 {
 		return nil, ErrNoneMsg
 	}
@@ -134,11 +134,11 @@ func (dq *diskQueue) PopFromDisk(msgOffset int64) ([]byte, error) {
 		dq.readingFile = findReadingFileByOffset(dq.storeFiles.Load().([]*DiskFile), msgOffset)
 	}
 
-	data, err := dq.readingFile.read(msgOffset, 256)
+	data, err := dq.readingFile.read(msgOffset, count)
 	if err != nil {
 		if err == io.EOF && msgOffset <= dq.getLastOffset() {
 			dq.readingFile = nil
-			return dq.PopFromDisk(msgOffset)
+			return dq.PopFromDisk(msgOffset, count)
 		}
 		return nil, err
 	}
@@ -266,7 +266,7 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 	return -1, nil
 }
 
-func (df *DiskFile) read(msgOffset int64, batchCount int) ([]byte, error) {
+func (df *DiskFile) read(msgOffset int64, count int) ([]byte, error) {
 	var startOffset, endOffset int64
 	var err error
 
@@ -278,8 +278,8 @@ func (df *DiskFile) read(msgOffset int64, batchCount int) ([]byte, error) {
 	}
 
 	var endPositionInIndexFile int64
-	if msgOffset+int64(batchCount)-1 < df.getEndOffset() {
-		endPositionInIndexFile = (msgOffset - df.getStartOffset() + int64(batchCount)) * EachIndexLen
+	if msgOffset+int64(count)-1 < df.getEndOffset() {
+		endPositionInIndexFile = (msgOffset - df.getStartOffset() + int64(count)) * EachIndexLen
 		endOffset, err = df.getDatafilePosition(endPositionInIndexFile)
 		if err != nil {
 			return nil, err

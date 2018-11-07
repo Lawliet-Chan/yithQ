@@ -25,12 +25,12 @@ func (q *Queue) Fill(msgs []*message.Message) error {
 	return q.dq.FillToDisk(msgs)
 }
 
-func (q *Queue) Pop(popOffset int64, writer http.ResponseWriter) error {
+func (q *Queue) Pop(popOffset int64, count int, writer http.ResponseWriter) error {
 	/*if popOffset == -1 {
 		q.mq.PopFromMemory(writer)
 		return nil
 	}*/
-	msgsData, err := q.dq.PopFromDisk(popOffset)
+	msgsData, err := q.dq.PopFromDisk(popOffset, count)
 	if err != nil {
 		return err
 	}

@@ -28,6 +28,7 @@ func main() {
 		"partitionID": []string{"001"},
 		"offset":      []string{"1"},
 		"version":     []string{"0"},
+		"count":       []string{"4096"},
 	})
 	//http.Get(consumerUrl)
 	if err != nil {
