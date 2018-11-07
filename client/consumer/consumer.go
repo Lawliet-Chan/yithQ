@@ -12,28 +12,28 @@ import (
 )
 
 type Consumer struct {
-	rw sync.RWMutex
-	//brokersAddress []string
+	rw          sync.RWMutex
 	zeroAddress string
 	topicOffset map[string]int64 // key is topic_partitionID, ep:  yith_100
 	metadata    *meta.Metadata
 
-	incomingMsgs chan *message.Message
-	consumeError chan error
+	//incomingMsgs chan *message.Message
+	//consumeError chan error
 }
 
 func NewConsumer(zeroAddress string) *Consumer {
 	return &Consumer{
 		zeroAddress: zeroAddress,
 		//offset is the last consumed index
-		topicOffset:  make(map[string]int64),
-		metadata:     meta.NewMetadata(),
-		incomingMsgs: make(chan *message.Message, 1024),
-		consumeError: make(chan error),
+		topicOffset: make(map[string]int64),
+		metadata:    meta.NewMetadata(),
+		//incomingMsgs: make(chan *message.Message, 1024),
+		//consumeError: make(chan error),
 	}
 }
 
-func (c *Consumer) Consume(topic string) (<-chan *message.Message, <-chan error) {
+func (c *Consumer) Consume(topic string, fn func(msg *message.Message) error) <-chan error {
+	errChan := make(chan error)
 	nodeTopics := c.metadata.FindTopicAllPartitions(topic)
 	for node, topicmetas := range nodeTopics {
 		go func(node string, topicmetas []meta.TopicMetadata) {
@@ -42,17 +42,19 @@ func (c *Consumer) Consume(topic string) (<-chan *message.Message, <-chan error)
 				offset := c.Offset(topic, partitionID)
 				msgs, err := c.consumeFromBroker(node, topic, partitionID, offset+1)
 				if err != nil {
-					c.consumeError <- err
+					errChan <- err
 					return
 				}
 				for _, msg := range msgs {
-					c.incomingMsgs <- msg
+					if err := fn(msg); err != nil {
+						errChan <- err
+					}
 				}
 				c.addOffset(topic, partitionID, int64(len(msgs))-1)
 			}
 		}(node, topicmetas)
 	}
-	return c.incomingMsgs, c.consumeError
+	return errChan
 }
 
 func (c *Consumer) ConsumePartition(topic string, partitionID int) ([]*message.Message, error) {
