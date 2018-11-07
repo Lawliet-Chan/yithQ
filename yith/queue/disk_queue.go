@@ -192,17 +192,6 @@ func newDiskFile(name string, seq int, isFull bool) (*DiskFile, error) {
 		return nil, err
 	}
 
-	dataFi, err := dataf.Stat()
-	if err != nil {
-		return nil, err
-	}
-	if dataFi.Size() < DiskFileSizeLimit {
-		_, err = dataf.WriteAt([]byte(" "), DiskFileSizeLimit-1)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	dataFileSize, err := dataFileSize(dataf)
 	if err != nil {
 		return nil, err
@@ -234,7 +223,7 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 
 	dataFileSize := atomic.LoadInt64(&df.size)
 
-	pageOffset := dataFileSize % pagesize
+	/*pageOffset := dataFileSize % pagesize
 
 	dataRef, err := syscall.Mmap(int(df.dataFile.Fd()), dataFileSize-pageOffset, int(DiskFileSizeLimit-dataFileSize+pageOffset), syscall.PROT_WRITE|syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
@@ -244,7 +233,7 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 	err = madvise(dataRef, syscall.MADV_SEQUENTIAL)
 	if err != nil {
 		return -1, err
-	}
+	}*/
 
 	var cursor int64 = 0
 	for i, msg := range msgs {
@@ -257,35 +246,32 @@ func (df *DiskFile) write(batchStartOffset int64, msgs []*message.Message) (int,
 			return -1, ErrMsgTooLarge
 		}
 
-		if len(dataRef[cursor:]) < len(byt) {
+		if int64(len(byt))+atomic.LoadInt64(&df.size)+int64(cursor) > DiskFileSizeLimit {
 			df.isFull = true
-			return i, syscall.Munmap(dataRef)
+			return i, nil
 		}
 
 		byt = []byte(string(byt) + ",")
-		//var buf bytes.Buffer
-		//buf.Write(byt)
-		//buf.Write([]byte(`,`))
-		//fmt.Println("bytes is ", string(buf.Bytes()))
-		copy(dataRef[cursor+pageOffset:], byt)
+		//copy(dataRef[cursor+pageOffset:], byt)
+		if _, err := df.dataFile.Write(byt); err != nil {
+			return -1, err
+		}
 
-		_, err = df.indexFile.Write(encodeIndex(batchStartOffset+int64(i), dataFileSize+cursor))
-		if err != nil {
+		if _, err := df.indexFile.Write(encodeIndex(batchStartOffset+int64(i), dataFileSize+cursor)); err != nil {
 			return -1, err
 		}
 		cursor += int64(len(byt))
-
+		atomic.AddInt64(&df.size, int64(len(byt)))
 	}
 
-	err = syscall.Munmap(dataRef)
-	if err != nil {
+	if err := df.fileSync(); err != nil {
 		return -1, err
 	}
 
 	if dataFileSize == 0 {
 		atomic.StoreInt64(&df.startOffset, batchStartOffset)
 	}
-	atomic.StoreInt64(&df.size, dataFileSize+cursor)
+	//atomic.StoreInt64(&df.size, dataFileSize+cursor)
 
 	atomic.StoreInt64(&df.endOffset, batchStartOffset+int64(len(msgs))-1)
 
@@ -328,6 +314,16 @@ func (df *DiskFile) read(msgOffset int64, batchCount int) ([]byte, error) {
 
 }
 
+func (df *DiskFile) fileSync() error {
+	if err := df.dataFile.Sync(); err != nil {
+		return err
+	}
+	if err := df.indexFile.Sync(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (df *DiskFile) getDatafilePosition(positionInIndexFile int64) (offset int64, err error) {
 	index := make([]byte, EachIndexLen)
 	_, err = df.indexFile.ReadAt(index, positionInIndexFile)
@@ -365,18 +361,11 @@ func decodeIndex(indexBytes []byte) (msgOffset int64, dataPosition int64) {
 }
 
 func dataFileSize(f *os.File) (int64, error) {
-	data, err := syscall.Mmap(int(f.Fd()), 0, DiskFileSizeLimit, syscall.PROT_READ, syscall.MAP_SHARED)
+	fi, err := f.Stat()
 	if err != nil {
 		return 0, err
 	}
-	var i int
-	for i = 0; i < len(data); i++ {
-		if data[i] == 0 {
-			break
-		}
-	}
-	//realData := bytes.TrimRight(data, " ")
-	return int64(len(data[:i])), nil
+	return fi.Size(), nil
 }
 
 func PickupTopicInfoFromDisk() ([]meta.TopicMetadata, error) {
