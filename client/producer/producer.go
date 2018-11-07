@@ -40,6 +40,7 @@ func NewProducerWithSendLimit(zeroAddress string, timeSendLimit time.Duration, c
 		countSendLimit:  countSendLimit,
 		nortifySend:     make(chan struct{}),
 		sendingQueueMap: &sync.Map{},
+		timeCounter:     time.NewTimer(timeSendLimit),
 		countCounter:    0,
 		errorSend:       make(chan error, countSendLimit),
 		metadata:        meta.NewMetadata(),
@@ -70,7 +71,8 @@ func (p *Producer) MultiPublish(topic string, msgs [][]byte) {
 func (p *Producer) prepareForSend(topic string, msgByts ...[]byte) {
 	msgq, ok := p.sendingQueueMap.Load(topic)
 	if !ok {
-		p.sendingQueueMap.Store(topic, make([]*message.Message, 0))
+		msgq = make([]*message.Message, 0)
+		p.sendingQueueMap.Store(topic, msgq)
 	}
 	msgs := make([]*message.Message, 0)
 	for _, msgByt := range msgByts {

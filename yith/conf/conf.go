@@ -19,6 +19,9 @@ type Config struct {
 	HeartbeatInterval string `yaml:"heartbeat_interval"`
 
 	LoggerLevel string `yaml:"logger_level"`
+
+	//msg sync to disk
+	NoSync bool `yaml:"no_sync"`
 }
 
 type QueueConf struct {
