@@ -8,8 +8,8 @@ import (
 func TestWeightQueue_AddNode(t *testing.T) {
 	wq := NewWeightQueue()
 	wq.AddNode("http://localhost:7777")
-	for _, nw := range wq.nodeWeights {
-		t.Logf("ADD node is %s ,weight is %d \n", nw.Node, nw.Weight)
+	for node, wgh := range wq.nodeWeight {
+		t.Logf("ADD node is %s ,weight is %d \n", node, wgh)
 	}
 	for topicmeta, _ := range wq.topicNode {
 		t.Logf("ADD topic is %s, partitionID is %d \n", topicmeta.Topic, topicmeta.PartitionID)
@@ -34,7 +34,7 @@ func TestWeightQueue_PopNodes(t *testing.T) {
 		IsReplica:   false,
 	})
 
-	nodes := wq.PopNodes(2)
+	nodes := wq.PopNodes(1)
 	for _, node := range nodes {
 		t.Logf("Pop_Nodes is %s \n", node)
 	}
@@ -70,8 +70,8 @@ func TestWeightQueue_Put(t *testing.T) {
 		PartitionID: 1,
 		IsReplica:   false,
 	})
-	for _, nw := range wq.nodeWeights {
-		t.Logf("PUT node is %s ,weight is %d \n", nw.Node, nw.Weight)
+	for node, wgh := range wq.nodeWeight {
+		t.Logf("PUT node is %s ,weight is %d \n", node, wgh)
 	}
 	for topicmeta, _ := range wq.topicNode {
 		t.Logf("PUT topicmeta topic is %s,partitionID is %d \n", topicmeta.Topic, topicmeta.PartitionID)
@@ -111,8 +111,8 @@ func TestWeightQueue_DeleteNode(t *testing.T) {
 	wq := NewWeightQueue()
 	wq.AddNode("http://localhost:7777")
 	wq.DeleteNode("http://localhost:7777")
-	for _, nw := range wq.nodeWeights {
-		t.Logf("DELETE_NODE node is %s ,weight is %d \n", nw.Node, nw.Weight)
+	for node, wgh := range wq.nodeWeight {
+		t.Logf("DELETE_NODE node is %s ,weight is %d \n", node, wgh)
 	}
 	for topicmeta, _ := range wq.topicNode {
 		t.Logf("DELEET_NODE topic is %s , partitionID is %d \n", topicmeta.Topic, topicmeta.PartitionID)
@@ -121,13 +121,15 @@ func TestWeightQueue_DeleteNode(t *testing.T) {
 
 func TestWeightQueue_DeleteTopicPartition(t *testing.T) {
 	wq := NewWeightQueue()
-	wq.Put("http://localhost:7777", meta.TopicMetadata{
+	tm := meta.TopicMetadata{
 		Topic:       "test_queue_delete_topic_partition",
 		PartitionID: 1,
 		IsReplica:   false,
-	})
-	for _, nw := range wq.nodeWeights {
-		t.Logf("DELETE_topic_partition node is %s ,weight is %d \n", nw.Node, nw.Weight)
+	}
+	wq.Put("http://localhost:7777", tm)
+	wq.DeleteTopicPartition(tm)
+	for node, wgh := range wq.nodeWeight {
+		t.Logf("DELETE_topic_partition node is %s ,weight is %d \n", node, wgh)
 	}
 	for topicmeta, _ := range wq.topicNode {
 		t.Logf("DELEET_topic_partition topic is %s ,partitionID is %d \n", topicmeta.Topic, topicmeta.PartitionID)

@@ -8,67 +8,14 @@ import (
 
 type WeightQueue struct {
 	sync.RWMutex
-	nodeWeights NodeWeights
-	topicNode   map[meta.TopicMetadata]string
-}
-
-type NodeWeights []*NodeWeight
-
-type NodeWeight struct {
-	Node   string
-	Weight int
-}
-
-func (nws NodeWeights) Swap(i, j int) {
-	nws[i], nws[j] = nws[j], nws[i]
-}
-
-func (nws NodeWeights) Len() int {
-	return len(nws)
-}
-
-func (nws NodeWeights) Less(i, j int) bool {
-	return nws[i].Weight < nws[j].Weight
-}
-
-func (nws NodeWeights) addNode(node string) {
-	for _, nw := range nws {
-		if nw.Node == node {
-			return
-		}
-	}
-
-	nws = append(nws, &NodeWeight{
-		Node:   node,
-		Weight: 0,
-	})
-
-}
-
-func (nws NodeWeights) deleteNode(nodeName string) {
-	for i, nw := range nws {
-		if nw.Node == nodeName {
-			if i == nws.Len()-1 {
-				nws = nws[:i]
-			} else {
-				nws = append(nws[:i], nws[i+1:]...)
-			}
-		}
-	}
-}
-
-func (nws NodeWeights) reduceNodeWeight(nodeName string) {
-	for _, nw := range nws {
-		if nw.Node == nodeName {
-			nw.Weight -= 1
-		}
-	}
+	nodeWeight map[string]int
+	topicNode  map[meta.TopicMetadata]string
 }
 
 func NewWeightQueue() *WeightQueue {
 	return &WeightQueue{
-		nodeWeights: make([]*NodeWeight, 0),
-		topicNode:   make(map[meta.TopicMetadata]string),
+		nodeWeight: make(map[string]int),
+		topicNode:  make(map[meta.TopicMetadata]string),
 	}
 }
 
@@ -76,21 +23,13 @@ func (wq *WeightQueue) Put(node string, topic meta.TopicMetadata) {
 	wq.Lock()
 	defer wq.Unlock()
 	wq.topicNode[topic] = node
-	//exists := false
-	for _, nw := range wq.nodeWeights {
-		if nw.Node == node {
-			nw.Weight++
-			//exists = true
-		}
-	}
-
-	sort.Sort(wq.nodeWeights)
+	wq.nodeWeight[node]++
 }
 
 func (wq *WeightQueue) AddNode(node string) {
 	wq.Lock()
 	defer wq.Unlock()
-	wq.nodeWeights.addNode(node)
+	wq.nodeWeight[node] = 0
 }
 
 func (wq *WeightQueue) GetNode(topic meta.TopicMetadata) string {
@@ -100,35 +39,40 @@ func (wq *WeightQueue) GetNode(topic meta.TopicMetadata) string {
 }
 
 //升序pop，从weight最小的node开始pop
-func (wq *WeightQueue) PopNodes(count int) []string {
-	wq.RLock()
-	defer wq.RUnlock()
-	nodes := make([]string, 0)
-	if count == 0 || len(wq.nodeWeights) == 0 {
-		return nodes
-	}
-	nws := wq.nodeWeights[:count]
-	for i, nw := range nws {
-		nodes[i] = nw.Node
-	}
-	return nodes
+func (wq *WeightQueue) PopNodes(amount int) []string {
+	return wq.PopNodesWithout(amount, "")
 }
 
-func (wq *WeightQueue) PopNodesWithout(count int, withoutNode string) []string {
+func (wq *WeightQueue) PopNodesWithout(amount int, withoutNode string) []string {
 	wq.RLock()
 	defer wq.RUnlock()
 	nodes := make([]string, 0)
-	if count == 0 || len(wq.nodeWeights) == 0 {
+	if amount == 0 || len(wq.nodeWeight) == 0 {
 		return nodes
 	}
-	nws := wq.nodeWeights[:count+1]
-	for _, nw := range nws {
-		if nw.Node == withoutNode {
-			continue
+	if amount >= len(wq.nodeWeight) {
+		for node, _ := range wq.nodeWeight {
+			if node != withoutNode {
+				nodes = append(nodes, node)
+			}
 		}
-		nodes = append(nodes, nw.Node)
+		return nodes
 	}
-	return nodes[:count]
+
+	sortWeightNode := make(map[int][]string)
+	weights := make([]int, 0)
+	for node, weight := range wq.nodeWeight {
+		if node != withoutNode {
+			weights = append(weights, weight)
+			sortWeightNode[weight] = append(sortWeightNode[weight], node)
+		}
+	}
+	sort.Ints(weights)
+	for _, wgh := range weights {
+		nodes = append(nodes, sortWeightNode[wgh]...)
+	}
+
+	return nodes[:amount]
 }
 
 func (wq *WeightQueue) DeleteNode(nodeName string) {
@@ -139,8 +83,7 @@ func (wq *WeightQueue) DeleteNode(nodeName string) {
 			delete(wq.topicNode, tmd)
 		}
 	}
-	wq.nodeWeights.deleteNode(nodeName)
-
+	delete(wq.nodeWeight, nodeName)
 }
 
 func (wq *WeightQueue) DeleteTopicPartition(tm meta.TopicMetadata) {
@@ -148,10 +91,8 @@ func (wq *WeightQueue) DeleteTopicPartition(tm meta.TopicMetadata) {
 	defer wq.Unlock()
 	if node, ok := wq.topicNode[tm]; ok {
 		delete(wq.topicNode, tm)
-		wq.nodeWeights.reduceNodeWeight(node)
+		wq.nodeWeight[node]--
 	}
-	sort.Sort(wq.nodeWeights)
-
 }
 
 func (wq *WeightQueue) TopicNode() map[meta.TopicMetadata]string {
@@ -164,8 +105,8 @@ func (wq *WeightQueue) AllNodes() []string {
 	wq.RLock()
 	defer wq.RUnlock()
 	nodes := make([]string, 0)
-	for _, nw := range wq.nodeWeights {
-		nodes = append(nodes, nw.Node)
+	for node, _ := range wq.nodeWeight {
+		nodes = append(nodes, node)
 	}
 	return nodes
 }
