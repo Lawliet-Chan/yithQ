@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
+	"sync"
 	"yithQ/message"
 	"yithQ/meta"
 )
@@ -15,34 +17,32 @@ type Producer struct {
 	metadata    *meta.Metadata
 	//the amount that each topic can have
 	partitionFactory float64
+
+	producerPort string
 }
 
 func NewProducer(zeroAddress string) (*Producer, error) {
-	return NewProducerWithPartitionFactory(zeroAddress, 0.75)
+	return NewProducerWithPfAndPort(zeroAddress, ":9970", 0.75)
 }
 
-func NewProducerWithPartitionFactory(zeroAddress string, partitionFactory float64) (*Producer, error) {
+func NewProducerWithPfAndPort(zeroAddress string, producerPort string, partitionFactory float64) (*Producer, error) {
 	p := &Producer{
 		zeroAddress:      zeroAddress,
 		partitionFactory: partitionFactory,
+		producerPort:     producerPort,
 	}
 	metadata, err := p.obtainMetaFromZero()
 	if err != nil {
 		return nil, err
 	}
-	metadata.TopicNodeMap.Range(func(topicmeta, node interface{}) bool {
-		fmt.Println("init metadata is ", topicmeta)
-		fmt.Println("init node is ", node)
-		return true
-	})
 	p.metadata = metadata
 	return p, nil
 }
 
-func (p *Producer) Publish(topic string, msg []byte) <-chan error {
+func (p *Producer) Publish(topic string, msg []byte) error {
 	errChan := make(chan error)
 	p.send(topic, [][]byte{msg}, errChan)
-	return errChan
+	return <-errChan
 }
 
 func (p *Producer) MultiPublish(topic string, msgs [][]byte) <-chan error {
@@ -63,8 +63,6 @@ func (p *Producer) send(topic string, msgsByt [][]byte, errChan chan<- error) {
 	nodeTopicMeta := p.metadata.FindTopicAllPartitions(topic)
 	if len(nodeTopicMeta) == 0 {
 		nodes := p.metadata.GetAllNodes()
-		fmt.Println(p.metadata.TopicNodeMap)
-		fmt.Println("nodes are ", nodes)
 		for i, node := range nodes {
 			nodeTopicMeta[node] = meta.TopicMetadata{
 				Topic:       topic,
@@ -77,8 +75,10 @@ func (p *Producer) send(topic string, msgsByt [][]byte, errChan chan<- error) {
 	length := len(msgsByt) / len(nodeTopicMeta)
 	i := 0
 	j := length
+	var wg sync.WaitGroup
+	wg.Add(len(nodeTopicMeta))
 	for node, tm := range nodeTopicMeta {
-		go func(node string, topicmeta meta.TopicMetadata, msgsByt [][]byte, errChan chan<- error) {
+		go func(node string, topicmeta meta.TopicMetadata, msgsByt [][]byte, wg sync.WaitGroup, errChan chan<- error) {
 			byt, err := p.makeMessagesByte(topic, msgsByt, topicmeta.PartitionID)
 			if err != nil {
 				errChan <- err
@@ -87,10 +87,12 @@ func (p *Producer) send(topic string, msgsByt [][]byte, errChan chan<- error) {
 			if err != nil {
 				errChan <- err
 			}
-		}(node, tm, msgsByt[i:j], errChan)
+			wg.Done()
+		}(node, tm, msgsByt[i:j], wg, errChan)
 		i = j
 		j += length
 	}
+	wg.Wait()
 }
 
 func (p *Producer) sendPartition(topic string, partitionID int, msgsByt [][]byte) error {
@@ -106,7 +108,15 @@ func (p *Producer) sendPartition(topic string, partitionID int, msgsByt [][]byte
 }
 
 func (p *Producer) sendToBroker(node string, msgsByt []byte) error {
+	fmt.Printf("send to %s msg %s \n", node, string(msgsByt))
+	nodeArr := strings.Split(node, ":")
+	node = strings.Join(nodeArr[:len(nodeArr)-1], "") + p.producerPort
+	if !strings.HasPrefix(node, "http://") {
+		node = "http://" + node
+	}
+	fmt.Println("node is ", node)
 	resp, err := http.Post(node, "application/json", bytes.NewBuffer(msgsByt))
+	fmt.Println("http send error : ", err)
 	if err != nil {
 		return err
 	}
