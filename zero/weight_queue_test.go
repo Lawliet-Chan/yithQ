@@ -12,7 +12,7 @@ func TestWeightQueue_AddNode(t *testing.T) {
 		t.Logf("ADD node is %s ,weight is %d \n", nw.Node, nw.Weight)
 	}
 	for topicmeta, _ := range wq.topicNode {
-		t.Logf("ADD topicmeta is %v \n", topicmeta)
+		t.Logf("ADD topic is %s, partitionID is %d \n", topicmeta.Topic, topicmeta.PartitionID)
 	}
 }
 
@@ -74,7 +74,7 @@ func TestWeightQueue_Put(t *testing.T) {
 		t.Logf("PUT node is %s ,weight is %d \n", nw.Node, nw.Weight)
 	}
 	for topicmeta, _ := range wq.topicNode {
-		t.Logf("PUT topicmeta is %v \n", topicmeta)
+		t.Logf("PUT topicmeta topic is %s,partitionID is %d \n", topicmeta.Topic, topicmeta.PartitionID)
 	}
 }
 
@@ -115,7 +115,7 @@ func TestWeightQueue_DeleteNode(t *testing.T) {
 		t.Logf("DELETE_NODE node is %s ,weight is %d \n", nw.Node, nw.Weight)
 	}
 	for topicmeta, _ := range wq.topicNode {
-		t.Logf("DELEET_NODE topicmeta is %v \n", topicmeta)
+		t.Logf("DELEET_NODE topic is %s , partitionID is %d \n", topicmeta.Topic, topicmeta.PartitionID)
 	}
 }
 
@@ -130,7 +130,7 @@ func TestWeightQueue_DeleteTopicPartition(t *testing.T) {
 		t.Logf("DELETE_topic_partition node is %s ,weight is %d \n", nw.Node, nw.Weight)
 	}
 	for topicmeta, _ := range wq.topicNode {
-		t.Logf("DELEET_topic_partition topicmeta is %v \n", topicmeta)
+		t.Logf("DELEET_topic_partition topic is %s ,partitionID is %d \n", topicmeta.Topic, topicmeta.PartitionID)
 	}
 }
 
