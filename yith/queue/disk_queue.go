@@ -18,7 +18,7 @@ import (
 
 type DiskQueue interface {
 	FillToDisk(msg []*message.Message) error
-	PopFromDisk(popOffset int64, count int) ([]byte, error)
+	PopFromDisk(popOffset int64, amount int) ([]byte, error)
 }
 
 type diskQueue struct {
@@ -123,7 +123,7 @@ func (dq *diskQueue) FillToDisk(msgs []*message.Message) error {
 	return nil
 }
 
-func (dq *diskQueue) PopFromDisk(msgOffset int64, count int) ([]byte, error) {
+func (dq *diskQueue) PopFromDisk(msgOffset int64, amount int) ([]byte, error) {
 	if len(dq.storeFiles.Load().([]*DiskFile)) == 0 || dq.getLastOffset() == 0 {
 		return nil, ErrNoneMsg
 	}
@@ -134,11 +134,11 @@ func (dq *diskQueue) PopFromDisk(msgOffset int64, count int) ([]byte, error) {
 		dq.readingFile = findReadingFileByOffset(dq.storeFiles.Load().([]*DiskFile), msgOffset)
 	}
 
-	data, err := dq.readingFile.read(msgOffset, count)
+	data, err := dq.readingFile.read(msgOffset, amount)
 	if err != nil {
 		if err == io.EOF && msgOffset <= dq.getLastOffset() {
 			dq.readingFile = nil
-			return dq.PopFromDisk(msgOffset, count)
+			return dq.PopFromDisk(msgOffset, amount)
 		}
 		return nil, err
 	}

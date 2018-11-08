@@ -60,7 +60,7 @@ func (n *Node) ProduceTopicPartition(topic string, partitionID int, msgs []*mess
 	return partition.(*Partition).Produce(msgs)
 }
 
-func (n *Node) Consume(topic string, partitionID int, popOffset int64, count int, writer http.ResponseWriter) error {
+func (n *Node) Consume(topic string, partitionID int, popOffset int64, amount int, writer http.ResponseWriter) error {
 	partition, ok := n.topicPartition.Load(TopicPartitionInfo{
 		Topic:       topic,
 		PartitionID: partitionID,
@@ -68,7 +68,7 @@ func (n *Node) Consume(topic string, partitionID int, popOffset int64, count int
 	if !ok {
 		return TopicNotExist
 	}
-	return partition.(*Partition).Consume(popOffset, count, writer)
+	return partition.(*Partition).Consume(popOffset, amount, writer)
 }
 
 func (n *Node) DeleteTopicPartition(topic string, partitionID int) {

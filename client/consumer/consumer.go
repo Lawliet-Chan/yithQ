@@ -12,21 +12,24 @@ import (
 )
 
 type Consumer struct {
-	rw          sync.RWMutex
-	zeroAddress string
-	topicOffset map[string]int64 // key is topic_partitionID, ep:  yith_100
-	metadata    *meta.Metadata
-
-	//incomingMsgs chan *message.Message
-	//consumeError chan error
+	rw            sync.RWMutex
+	zeroAddress   string
+	topicOffset   map[string]int64 // key is topic_partitionID, ep:  yith_100
+	metadata      *meta.Metadata
+	consumeAmount int
 }
 
 func NewConsumer(zeroAddress string) *Consumer {
+	return NewConsumerWithAmount(zeroAddress, 256)
+}
+
+func NewConsumerWithAmount(zeroAddress string, consumeAmount int) *Consumer {
 	return &Consumer{
 		zeroAddress: zeroAddress,
 		//offset is the last consumed index
-		topicOffset: make(map[string]int64),
-		metadata:    meta.NewMetadata(),
+		topicOffset:   make(map[string]int64),
+		metadata:      meta.NewMetadata(),
+		consumeAmount: consumeAmount,
 	}
 }
 
@@ -96,6 +99,7 @@ func (c *Consumer) consumeFromBroker(node, topic string, partitionID int, offset
 		"partitionID": []string{strconv.Itoa(partitionID)},
 		"offset":      []string{strconv.FormatInt(offset, 10)},
 		"version":     []string{strconv.FormatUint(uint64(c.metadata.GetVersion()), 10)},
+		"amount":      []string{strconv.Itoa(c.consumeAmount)},
 	})
 	if err != nil {
 		return nil, err

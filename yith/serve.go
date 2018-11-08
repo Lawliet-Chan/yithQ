@@ -194,8 +194,8 @@ func (s *Serve) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte(string(err.Error())))
 		return
 	}
-	countStr := req.FormValue("count")
-	count, err := strconv.Atoi(countStr)
+	amountStr := req.FormValue("amount")
+	amount, err := strconv.Atoi(amountStr)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(string(err.Error())))
@@ -206,7 +206,7 @@ func (s *Serve) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusMovedPermanently)
 		return
 	}
-	err = s.node.Consume(topic, partitionID, offset, count, w)
+	err = s.node.Consume(topic, partitionID, offset, amount, w)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(string(err.Error())))

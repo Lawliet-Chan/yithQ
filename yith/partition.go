@@ -37,6 +37,6 @@ func (p *Partition) Produce(msgs []*message.Message) error {
 	return p.q.Fill(msgs)
 }
 
-func (p *Partition) Consume(popOffset int64, count int, writer http.ResponseWriter) error {
-	return p.q.Pop(popOffset, count, writer)
+func (p *Partition) Consume(popOffset int64, amount int, writer http.ResponseWriter) error {
+	return p.q.Pop(popOffset, amount, writer)
 }
