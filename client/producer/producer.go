@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"sync"
-	"sync/atomic"
-	"time"
 	"yithQ/message"
 	"yithQ/meta"
 )
@@ -15,24 +12,19 @@ import (
 type Producer struct {
 	zeroAddress string
 	metadata    *meta.Metadata
-
-	//	timeSendLimit  time.Duration
-	//	countSendLimit int32
-
-	//	timeCounter  *time.Timer
-	//	countCounter int32
-
-	//	nortifySend chan struct{}
-
-	//	errorSend chan error
-
-	//	sendingQueueMap *sync.Map //map[string][]*message.Message
+	//the amount that each topic can have
+	partitionFactory float64
 }
 
 func NewProducer(zeroAddress string) *Producer {
+	return NewProducerWithPartitionFactory(zeroAddress, 0.75)
+}
+
+func NewProducerWithPartitionFactory(zeroAddress string, partitionFactory float64) *Producer {
 	return &Producer{
-		zeroAddress: zeroAddress,
-		metadata:    meta.NewMetadata(),
+		zeroAddress:      zeroAddress,
+		metadata:         meta.NewMetadata(),
+		partitionFactory: partitionFactory,
 	}
 }
 
@@ -57,25 +49,33 @@ func (p *Producer) MultiPublishPartition(topic string, partitionID int, msgs [][
 }
 
 func (p *Producer) send(topic string, msgsByt [][]byte, errChan chan<- error) {
-	nodeTopicMetas := p.metadata.FindTopicAllPartitions(topic)
-	for node, tms := range nodeTopicMetas {
-		for _, topicmeta := range tms {
-			go func(topicmeta meta.TopicMetadata) {
-				byt, err := p.makeMessagesByte(topic, msgsByt, topicmeta.PartitionID)
-				if err != nil {
-					errChan <- err
-				}
-				err = p.sendToBroker(node, byt)
-				if err != nil {
-					errChan <- err
-				}
-			}(topicmeta)
-		}
-
-	}
-	if len(nodeTopicMetas) == 0 {
+	nodeTopicMeta := p.metadata.FindTopicAllPartitions(topic)
+	if len(nodeTopicMeta) == 0 {
 		nodes := p.metadata.GetAllNodes()
-
+		for i, node := range nodes {
+			nodeTopicMeta[node] = meta.TopicMetadata{
+				Topic:       topic,
+				PartitionID: i + 1,
+				IsReplica:   false,
+			}
+		}
+	}
+	length := len(msgsByt) / len(nodeTopicMeta)
+	i := 0
+	j := length
+	for node, tm := range nodeTopicMeta {
+		go func(node string, topicmeta meta.TopicMetadata, msgsByt [][]byte, errChan chan<- error) {
+			byt, err := p.makeMessagesByte(topic, msgsByt, topicmeta.PartitionID)
+			if err != nil {
+				errChan <- err
+			}
+			err = p.sendToBroker(node, byt)
+			if err != nil {
+				errChan <- err
+			}
+		}(node, tm, msgsByt[i:j], errChan)
+		i = j
+		j += length
 	}
 }
 

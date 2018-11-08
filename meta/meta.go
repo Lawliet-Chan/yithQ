@@ -82,16 +82,16 @@ func (m *Metadata) FindReplicaNodes(topic string) []string {
 }
 
 //map[string]TopicMetadata   key is node
-func (m *Metadata) FindTopicAllPartitions(topic string) map[string][]TopicMetadata {
-	nodeTopics := make(map[string][]TopicMetadata)
+func (m *Metadata) FindTopicAllPartitions(topic string) map[string]TopicMetadata {
+	nodeTopic := make(map[string]TopicMetadata)
 	m.TopicNodeMap.Range(func(tmi, node interface{}) bool {
 		tm := tmi.(TopicMetadata)
 		if tm.Topic == topic && !tm.IsReplica {
-			nodeTopics[node.(string)] = append(nodeTopics[node.(string)], tm)
+			nodeTopic[node.(string)] = tm
 		}
 		return true
 	})
-	return nodeTopics
+	return nodeTopic
 }
 
 func (m *Metadata) FindPatitionID(topic, nodeIP string, isReplica bool) (parititionID int) {

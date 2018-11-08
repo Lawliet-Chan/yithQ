@@ -33,24 +33,22 @@ func NewConsumer(zeroAddress string) *Consumer {
 func (c *Consumer) Consume(topic string, fn func(msg *message.Message) error) <-chan error {
 	errChan := make(chan error)
 	nodeTopics := c.metadata.FindTopicAllPartitions(topic)
-	for node, topicmetas := range nodeTopics {
-		go func(node string, topicmetas []meta.TopicMetadata) {
-			for _, topicmeta := range topicmetas {
-				partitionID := topicmeta.PartitionID
-				offset := c.Offset(topic, partitionID)
-				msgs, err := c.consumeFromBroker(node, topic, partitionID, offset+1)
-				if err != nil {
-					errChan <- err
-					return
-				}
-				for _, msg := range msgs {
-					if err := fn(msg); err != nil {
-						errChan <- err
-					}
-				}
-				c.addOffset(topic, partitionID, int64(len(msgs))-1)
+	for node, topicmeta := range nodeTopics {
+		go func(node string, topicmeta meta.TopicMetadata) {
+			partitionID := topicmeta.PartitionID
+			offset := c.Offset(topic, partitionID)
+			msgs, err := c.consumeFromBroker(node, topic, partitionID, offset+1)
+			if err != nil {
+				errChan <- err
+				return
 			}
-		}(node, topicmetas)
+			for _, msg := range msgs {
+				if err := fn(msg); err != nil {
+					errChan <- err
+				}
+			}
+			c.addOffset(topic, partitionID, int64(len(msgs))-1)
+		}(node, topicmeta)
 	}
 	return errChan
 }
