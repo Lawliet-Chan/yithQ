@@ -3,6 +3,7 @@ package producer
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"yithQ/message"
@@ -16,16 +17,26 @@ type Producer struct {
 	partitionFactory float64
 }
 
-func NewProducer(zeroAddress string) *Producer {
+func NewProducer(zeroAddress string) (*Producer, error) {
 	return NewProducerWithPartitionFactory(zeroAddress, 0.75)
 }
 
-func NewProducerWithPartitionFactory(zeroAddress string, partitionFactory float64) *Producer {
-	return &Producer{
+func NewProducerWithPartitionFactory(zeroAddress string, partitionFactory float64) (*Producer, error) {
+	p := &Producer{
 		zeroAddress:      zeroAddress,
-		metadata:         meta.NewMetadata(),
 		partitionFactory: partitionFactory,
 	}
+	metadata, err := p.obtainMetaFromZero()
+	if err != nil {
+		return nil, err
+	}
+	metadata.TopicNodeMap.Range(func(topicmeta, node interface{}) bool {
+		fmt.Println("init metadata is ", topicmeta)
+		fmt.Println("init node is ", node)
+		return true
+	})
+	p.metadata = metadata
+	return p, nil
 }
 
 func (p *Producer) Publish(topic string, msg []byte) <-chan error {
@@ -52,6 +63,8 @@ func (p *Producer) send(topic string, msgsByt [][]byte, errChan chan<- error) {
 	nodeTopicMeta := p.metadata.FindTopicAllPartitions(topic)
 	if len(nodeTopicMeta) == 0 {
 		nodes := p.metadata.GetAllNodes()
+		fmt.Println(p.metadata.TopicNodeMap)
+		fmt.Println("nodes are ", nodes)
 		for i, node := range nodes {
 			nodeTopicMeta[node] = meta.TopicMetadata{
 				Topic:       topic,
@@ -60,6 +73,7 @@ func (p *Producer) send(topic string, msgsByt [][]byte, errChan chan<- error) {
 			}
 		}
 	}
+	fmt.Println("node topicmeta are ", nodeTopicMeta)
 	length := len(msgsByt) / len(nodeTopicMeta)
 	i := 0
 	j := length
