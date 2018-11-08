@@ -58,8 +58,9 @@ func (z *Zero) ListenYith() {
 
 func (z *Zero) NortifyAllYiths() error {
 	topicNodeMap := z.weightQueue.TopicNode()
+	nodes := z.weightQueue.AllNodes()
 	newVersion := atomic.AddUint32(&z.metadataVersion, 1)
-	byt, err := meta.NewMetadata().Marshal(topicNodeMap, newVersion)
+	byt, err := meta.NewMetadata().Marshal(topicNodeMap, nodes, newVersion)
 	if err != nil {
 		return err
 	}
@@ -113,8 +114,9 @@ func (z *Zero) DeleteTopicPartition(w http.ResponseWriter, req *http.Request) {
 
 func (z *Zero) ForFetchMetadata(w http.ResponseWriter, req *http.Request) {
 	topicNodeMap := z.weightQueue.TopicNode()
+	nodes := z.weightQueue.AllNodes()
 	version := atomic.LoadUint32(&z.metadataVersion)
-	byt, err := meta.NewMetadata().Marshal(topicNodeMap, version)
+	byt, err := meta.NewMetadata().Marshal(topicNodeMap, nodes, version)
 	if err != nil {
 		logger.Lg.Errorf("yith(%s) fetch metadata  error :%v", req.RemoteAddr, err)
 		w.WriteHeader(http.StatusInternalServerError)

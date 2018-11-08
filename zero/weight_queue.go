@@ -156,8 +156,18 @@ func (wq *WeightQueue) DeleteTopicPartition(tm meta.TopicMetadata) {
 
 func (wq *WeightQueue) TopicNode() map[meta.TopicMetadata]string {
 	wq.RLock()
-	wq.RUnlock()
+	defer wq.RUnlock()
 	return wq.topicNode
+}
+
+func (wq *WeightQueue) AllNodes() []string {
+	wq.RLock()
+	defer wq.RUnlock()
+	nodes := make([]string, 0)
+	for _, nw := range wq.nodeWeights {
+		nodes = append(nodes, nw.Node)
+	}
+	return nodes
 }
 
 /*for i, nw := range wq.nodeWeights {

@@ -10,17 +10,20 @@ import (
 type Metadata struct {
 	sync.Mutex
 	TopicNodeMap *sync.Map // map[TopicMetadata]NodeIP
+	Nodes        *sync.Map
 	Version      uint32
 }
 
 type GobMetadata struct {
 	TopicNodeMap map[TopicMetadata]string `gob:"topic_node_map"`
 	Version      uint32                   `gob:"version"`
+	Nodes        map[string]bool          `gob:"nodes"`
 }
 
 func NewMetadata() *Metadata {
 	return &Metadata{
 		TopicNodeMap: &sync.Map{},
+		Nodes:        &sync.Map{},
 		Version:      0,
 	}
 }
@@ -36,13 +39,21 @@ func (m *Metadata) Unmarshal(data []byte) error {
 	for k, v := range gmd.TopicNodeMap {
 		m.TopicNodeMap.Store(k, v)
 	}
+	for node, _ := range gmd.Nodes {
+		m.Nodes.Store(node, true)
+	}
 	return nil
 }
 
-func (m *Metadata) Marshal(tnm map[TopicMetadata]string, version uint32) ([]byte, error) {
+func (m *Metadata) Marshal(tnm map[TopicMetadata]string, nodes []string, version uint32) ([]byte, error) {
 	var data bytes.Buffer
+	nodeMap := make(map[string]bool)
+	for _, node := range nodes {
+		nodeMap[node] = true
+	}
 	err := gob.NewEncoder(&data).Encode(GobMetadata{
 		TopicNodeMap: tnm,
+		Nodes:        nodeMap,
 		Version:      version,
 	})
 	return data.Bytes(), err
@@ -50,6 +61,7 @@ func (m *Metadata) Marshal(tnm map[TopicMetadata]string, version uint32) ([]byte
 
 func (m *Metadata) SetTopic(node string, metadata TopicMetadata) {
 	m.TopicNodeMap.Store(metadata, node)
+	m.Nodes.LoadOrStore(node, true)
 }
 
 func (m *Metadata) RemoveNode(node string) {
@@ -62,7 +74,7 @@ func (m *Metadata) RemoveTopic(node string, metadata TopicMetadata) {
 
 func (m *Metadata) GetAllNodes() []string {
 	nodes := make([]string, 0)
-	m.TopicNodeMap.Range(func(tmi, node interface{}) bool {
+	m.Nodes.Range(func(node, _ interface{}) bool {
 		nodes = append(nodes, node.(string))
 		return true
 	})
