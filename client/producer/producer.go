@@ -80,11 +80,7 @@ func (p *Producer) send(topic string, msgsByt [][]byte, errChan chan<- error) {
 	wg.Add(len(nodeTopicMeta))
 	for node, tm := range nodeTopicMeta {
 		go func(node string, topicmeta meta.TopicMetadata, msgsByt [][]byte, wg sync.WaitGroup, errChan chan<- error) {
-			byt, err := p.makeMessagesByte(topic, msgsByt, topicmeta.PartitionID)
-			if err != nil {
-				errChan <- err
-			}
-			err = p.sendToBroker(node, byt)
+			err := p.sendToBroker(node, p.makeMessages(topic, msgsByt, topicmeta.PartitionID))
 			if err != nil {
 				errChan <- err
 			}
@@ -97,45 +93,52 @@ func (p *Producer) send(topic string, msgsByt [][]byte, errChan chan<- error) {
 }
 
 func (p *Producer) sendPartition(topic string, partitionID int, msgsByt [][]byte) error {
-	byt, err := p.makeMessagesByte(topic, msgsByt, partitionID)
-	if err != nil {
-		return err
-	}
 	node := p.metadata.FindNodeWithTopicPartitionID(topic, partitionID, false)
 	if node == "" {
 		node = p.metadata.GetAllNodes()[0]
 	}
-	return p.sendToBroker(node, byt)
+	return p.sendToBroker(node, p.makeMessages(topic, msgsByt, partitionID))
 }
 
-func (p *Producer) sendToBroker(node string, msgsByt []byte) error {
-	nodeArr := strings.Split(node, ":")
-	node = strings.Join(nodeArr[:len(nodeArr)-1], "") + p.producerPort + "/produce"
-	fmt.Printf("send to %s msg %s \n", node, string(msgsByt))
-	if !strings.HasPrefix(node, "http://") {
+func (p *Producer) sendToBroker(node string, msgs *message.Messages) error {
+	node = node[:strings.LastIndex(node, ":")] + p.producerPort + "/produce"
+	fmt.Printf("send to %s msg %v \n", node, msgs)
+	if !strings.HasPrefix(node, "http") {
 		node = "http://" + node
 	}
-	fmt.Println("node is ", node)
-	resp, err := http.Post(node, "application/json", bytes.NewBuffer(msgsByt))
-	fmt.Println("http send error : ", err)
+	byt, err := json.Marshal(msgs)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
+	metaChanged, err := p.httpSendToBroker(node, byt)
 	if err != nil {
 		return err
 	}
-	if status.MetaChanged == string(data) {
-		fmt.Println("meta changed!")
+	if metaChanged {
+		fmt.Println(status.MetaChanged)
 		metadata, err := p.obtainMetaFromZero()
 		if err != nil {
 			return err
 		}
 		p.metadata.SetMetadata(metadata)
-		return p.sendToBroker(node, msgsByt)
+		msgs.MetaVersion = metadata.GetVersion()
+		return p.sendToBroker(node, msgs)
 	}
 	return nil
+}
+
+//bool is that if Meta changed
+func (p *Producer) httpSendToBroker(node string, msgsByt []byte) (bool, error) {
+	resp, err := http.Post(node, "application/json", bytes.NewBuffer(msgsByt))
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+	return status.MetaChanged == string(data), nil
 }
 
 func (p *Producer) obtainMetaFromZero() (*meta.Metadata, error) {
@@ -152,9 +155,30 @@ func (p *Producer) obtainMetaFromZero() (*meta.Metadata, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("metadata nodes from zero are ",metadata.Nodes)
+	fmt.Println("metadata topicmeta from zero is ",metadata.TopicNodeMap)
+	fmt.Println("metadata version from zero is ",metadata.Version)
 	return metadata, nil
 }
 
+func (p *Producer) makeMessages(topic string, msgsByt [][]byte, partitionID int) *message.Messages {
+	msgs := make([]*message.Message, 0)
+	for _, msgByt := range msgsByt {
+		msgs = append(msgs, &message.Message{
+			Body:    msgByt,
+			IsRetry: false,
+			//SeqNum:
+		})
+	}
+	return &message.Messages{
+		Topic:       topic,
+		Msgs:        msgs,
+		PartitionID: partitionID,
+		MetaVersion: p.metadata.GetVersion(),
+	}
+}
+
+/*
 func (p *Producer) makeMessagesByte(topic string, msgsByt [][]byte, partitionID int) ([]byte, error) {
 	msgs := make([]*message.Message, 0)
 	for _, msgByt := range msgsByt {
@@ -171,4 +195,4 @@ func (p *Producer) makeMessagesByte(topic string, msgsByt [][]byte, partitionID 
 		MetaVersion: p.metadata.GetVersion(),
 	}
 	return json.Marshal(messages)
-}
+}*/
