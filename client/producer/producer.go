@@ -10,6 +10,7 @@ import (
 	"sync"
 	"yithQ/message"
 	"yithQ/meta"
+	"yithQ/status"
 )
 
 type Producer struct {
@@ -108,9 +109,9 @@ func (p *Producer) sendPartition(topic string, partitionID int, msgsByt [][]byte
 }
 
 func (p *Producer) sendToBroker(node string, msgsByt []byte) error {
-	fmt.Printf("send to %s msg %s \n", node, string(msgsByt))
 	nodeArr := strings.Split(node, ":")
-	node = strings.Join(nodeArr[:len(nodeArr)-1], "") + p.producerPort
+	node = strings.Join(nodeArr[:len(nodeArr)-1], "") + p.producerPort + "/produce"
+	fmt.Printf("send to %s msg %s \n", node, string(msgsByt))
 	if !strings.HasPrefix(node, "http://") {
 		node = "http://" + node
 	}
@@ -121,7 +122,12 @@ func (p *Producer) sendToBroker(node string, msgsByt []byte) error {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusMovedPermanently {
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if status.MetaChanged == string(data) {
+		fmt.Println("meta changed!")
 		metadata, err := p.obtainMetaFromZero()
 		if err != nil {
 			return err

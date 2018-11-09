@@ -139,8 +139,8 @@ func (m *Metadata) UpgradeVersion() {
 
 func (m *Metadata) SetMetadata(md *Metadata) {
 	m.Lock()
+	defer m.Unlock()
 	m = md
-	m.Unlock()
 }
 
 type TopicMetadata struct {

@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"yithQ/message"
 	"yithQ/meta"
+	"yithQ/status"
 	. "yithQ/util/logger"
 	"yithQ/util/router"
 	"yithQ/yith/conf"
@@ -118,7 +119,7 @@ func (s *Serve) ReceiveMsgFromProducers(w http.ResponseWriter, req *http.Request
 	}
 	if !s.checkeMetadataVersion(msgs.MetaVersion) {
 		//返回客户端，metadata已经改变
-		w.WriteHeader(http.StatusMovedPermanently)
+		w.Write([]byte(status.MetaChanged))
 		return
 	}
 
@@ -203,7 +204,7 @@ func (s *Serve) SendMsgToConsumers(w http.ResponseWriter, req *http.Request) {
 	}
 	if !s.checkeMetadataVersion(uint32(metaVersion)) {
 		//返回客户端，metadata已经改变
-		w.WriteHeader(http.StatusMovedPermanently)
+		w.Write([]byte(status.MetaChanged))
 		return
 	}
 	err = s.node.Consume(topic, partitionID, offset, amount, w)
